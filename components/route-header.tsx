@@ -1,8 +1,18 @@
+import type { ReactNode, Ref } from "react";
+
 import type { RouteSummary } from "@/lib/briefing";
 import { SURFACE_LABELS } from "@/lib/briefing";
 import { formatDuration, formatNumber, kmToMiles, metresToFeet } from "@/lib/units";
 
-export function RouteHeader({ route }: { route: RouteSummary }) {
+export function RouteHeader({
+  route,
+  captureRef,
+  children,
+}: {
+  route: RouteSummary;
+  captureRef?: Ref<HTMLDivElement>;
+  children?: ReactNode;
+}) {
   return (
     <section className="relative overflow-hidden rounded-2xl border border-border-subtle bg-surface">
       <div
@@ -10,7 +20,7 @@ export function RouteHeader({ route }: { route: RouteSummary }) {
         className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent to-transparent"
       />
 
-      <div className="p-5 sm:p-6">
+      <div ref={captureRef} className="bg-surface p-5 sm:p-6">
         <p className="font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-accent">
           Pre-ride briefing · {route.startTime} roll-out
         </p>
@@ -61,6 +71,12 @@ export function RouteHeader({ route }: { route: RouteSummary }) {
           </div>
         </dl>
       </div>
+
+      {children ? (
+        <div className="border-t border-border-subtle px-5 py-4 sm:px-6">
+          {children}
+        </div>
+      ) : null}
     </section>
   );
 }
