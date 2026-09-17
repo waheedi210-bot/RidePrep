@@ -1,11 +1,15 @@
-import type { Briefing, Intensity, SweatRate } from "./briefing";
+import type { Briefing, Intensity, SweatRate } from "./briefing.ts";
+import {
+  calculateFueling,
+  calculateTirePressure,
+} from "./calculations.ts";
 import {
   averageBearing,
   bearingDifference,
   bearingToCompass,
   normaliseBearing,
   psiToBar,
-} from "./units";
+} from "./units.ts";
 
 export interface ApparelPick {
   slot: string;
@@ -61,11 +65,10 @@ export interface FuelingAdvice {
 
 const SHED_THRESHOLD_C = 14;
 
-/** Grams of carbohydrate per hour, before the duration bump. */
-const CARBS_BY_INTENSITY: Record<Intensity, number> = {
-  endurance: 60,
-  tempo: 75,
-  threshold: 90,
+const WATTS_BY_INTENSITY: Record<Intensity, number> = {
+  endurance: 150,
+  tempo: 210,
+  threshold: 280,
 };
 
 const SODIUM_BY_SWEAT_RATE: Record<SweatRate, number> = {
@@ -73,20 +76,6 @@ const SODIUM_BY_SWEAT_RATE: Record<SweatRate, number> = {
   moderate: 600,
   high: 850,
 };
-
-const FLUID_BY_SWEAT_RATE: Record<SweatRate, number> = {
-  low: 0.85,
-  moderate: 1,
-  high: 1.2,
-};
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
-}
-
-function roundTo(value: number, step: number) {
-  return Math.round(value / step) * step;
-}
 
 function classifyWind(travelBearing: number, windFromDeg: number): WindRelation {
   const difference = bearingDifference(travelBearing, windFromDeg);
@@ -164,25 +153,21 @@ export function recommendApparel({ hourly, route }: Briefing): ApparelAdvice {
 }
 
 /**
- * Pressure for roughly equal tyre drop front and rear: load is split 46/54
- * over the wheels, and pressure scales down as the casing gets wider.
- * Calibrated against modern road recommendations rather than Berto's charts,
- * which run high for today's wider tyres.
+ * Pressure for equal tyre drop at a 40/60 front/rear load split. Delegates
+ * to the Silca / SRAM model in `calculations.ts`.
  */
 export function recommendTyrePressure({
   rider,
   route,
   hourly,
 }: Briefing): TyreAdvice {
+  const { frontPsi, rearPsi } = calculateTirePressure({
+    riderWeightKg: rider.weightKg,
+    bikeWeightKg: rider.bikeWeightKg,
+    tireWidthMm: rider.tyreWidthMm,
+    isGravel: route.surface === "gravel",
+  });
   const systemWeightKg = rider.weightKg + rider.bikeWeightKg;
-  const systemWeightLb = systemWeightKg * 2.20462;
-  const widthFactor = (28 / rider.tyreWidthMm) ** 1.4;
-  const surfaceFactor = route.surface === "gravel" ? 0.82 : 1;
-  const psiPerLb = 0.756 * widthFactor * surfaceFactor;
-
-  const frontPsi = Math.round(systemWeightLb * 0.46 * psiPerLb);
-  const rearPsi = Math.round(systemWeightLb * 0.54 * psiPerLb);
-
   const wettestHour = hourly.reduce((wettest, hour) =>
     hour.precipChance > wettest.precipChance ? hour : wettest,
   );
@@ -227,34 +212,23 @@ export function recommendFueling({
   const averageTempC =
     hourly.reduce((total, hour) => total + hour.tempC, 0) / hourly.length;
 
-  // Long rides sit at the top of the 60–90 g/hr range; anything past 100 g/hr
-  // needs a gut trained for it.
-  const carbsPerHourG = clamp(
-    CARBS_BY_INTENSITY[rider.intensity] + (route.movingHours >= 3 ? 5 : 0),
-    50,
-    100,
-  );
-
-  const fluidPerHourMl = roundTo(
-    clamp(
-      (500 + (averageTempC - 15) * 25) * FLUID_BY_SWEAT_RATE[rider.sweatRate],
-      350,
-      1000,
-    ),
-    10,
-  );
+  const { carbsPerHour, fluidMlPerHour } = calculateFueling({
+    durationHours: route.movingHours,
+    temperatureC: averageTempC,
+    targetWatts: WATTS_BY_INTENSITY[rider.intensity],
+  });
 
   const sodiumPerHourMg =
     SODIUM_BY_SWEAT_RATE[rider.sweatRate] + (averageTempC > 20 ? 150 : 0);
 
-  const totalFluidMl = Math.round(fluidPerHourMl * route.movingHours);
+  const totalFluidMl = Math.round(fluidMlPerHour * route.movingHours);
   const bottles = Math.ceil(totalFluidMl / 500);
 
   return {
-    carbsPerHourG,
-    fluidPerHourMl,
+    carbsPerHourG: carbsPerHour,
+    fluidPerHourMl: fluidMlPerHour,
     sodiumPerHourMg,
-    totalCarbsG: Math.round(carbsPerHourG * route.movingHours),
+    totalCarbsG: Math.round(carbsPerHour * route.movingHours),
     totalFluidMl,
     bottles,
     refills: Math.max(0, bottles - 2),
