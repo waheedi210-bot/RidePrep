@@ -116,11 +116,19 @@ export function InstallPanel() {
               3. Confirm — RidePrep launches without browser chrome.
             </li>
           </ol>
+        ) : serviceWorker === "active" ? (
+          <p className="text-sm text-muted">
+            Your browser has not offered an install prompt. RidePrep may already
+            be installed — otherwise, install it from the browser menu.
+          </p>
         ) : (
           <p className="text-sm text-muted">
-            Your browser has not offered an install prompt yet. It needs a
-            production build (<code className="font-mono text-foreground">npm run build &amp;&amp; npm start</code>)
-            served over HTTPS or localhost, with the service worker active.
+            The install prompt needs an active service worker, and the service
+            worker is disabled in development. Run{" "}
+            <code className="font-mono text-foreground">
+              npm run build &amp;&amp; npm start
+            </code>{" "}
+            and open the app over HTTPS or localhost.
           </p>
         )}
 
