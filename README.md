@@ -87,7 +87,13 @@ Hand-written rather than generated, so it stays easy to inspect:
 - `theme_color` and `background_color` of `#0f172a`, matching the `themeColor`
   in the `viewport` export
 - `start_url` and `scope` of `/`, plus an explicit `id`
-- `any` icons at 96/192/384/512, `maskable` icons at 192/512, and the SVG source
+- `any` icons at 96/192/384/512 and `maskable` icons at 192/512, all PNG —
+  Chrome's manifest icon loader does not fetch SVG, so the SVG is referenced
+  from `metadata.icons` as a favicon only
+
+Not included: a `screenshots` array. Adding one (with both a `wide` and a
+narrow `form_factor`) is what unlocks Chrome's richer install dialog, and
+DevTools will nudge you about it until you supply real app screenshots.
 
 ### `app/layout.tsx`
 
