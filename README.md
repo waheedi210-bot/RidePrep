@@ -1,10 +1,11 @@
 # RidePrep
 
-A Next.js App Router starter, in TypeScript and Tailwind CSS, configured as an
-installable Progressive Web App with [`@ducanh2912/next-pwa`][next-pwa].
+A mobile-first pre-ride briefing, built on the Next.js App Router in TypeScript
+and Tailwind CSS, and installable as a Progressive Web App with
+[`@ducanh2912/next-pwa`][next-pwa].
 
-Everything visible — copy, icons, manifest strings — is placeholder content.
-The PWA plumbing underneath it is real.
+The route, forecast and rider profile are placeholder data. The PWA plumbing
+and the recommendation logic that reads that data are real.
 
 ## Stack
 
@@ -31,7 +32,7 @@ npm run build
 npm start
 ```
 
-Then open `http://localhost:3000`. The panel on the home page reports the
+Then open `http://localhost:3000`. The panel below the briefing reports the
 current display mode, service worker state and network status, and offers an
 **Add to Home Screen** button on browsers that support the install prompt.
 
@@ -45,6 +46,50 @@ current display mode, service worker state and network status, and offers an
 | `npm run lint`      | ESLint (`eslint-config-next`)                              |
 | `npm run typecheck` | Generates route types, then `tsc --noEmit`                 |
 | `npm run icons`     | Re-renders the PNG icons and favicon from the SVG sources   |
+
+## The briefing page
+
+`app/page.tsx` is a single mobile-first column, capped at `max-w-xl`, on a
+`#0f172a` background with `#fc4c02` accents. Top to bottom:
+
+1. **Route header** — name, region, distance in km and mi, elevation gain in m
+   and ft, and moving time with an average speed.
+2. **Temperature bar** — a CSS gradient interpolated through a cold-to-hot
+   colour scale from each hour's air temperature, with the hourly values below
+   it and the largest wind-chill delta called out.
+3. **Three tabs** — apparel layering, tyre pressure and wind, and fuelling
+   targets. Full labels at `sm` and up, short ones below that so three tabs fit
+   a 320 px screen. Arrow keys, Home and End move between them, with a roving
+   `tabindex` and the usual `role="tablist"` wiring.
+
+### Where the numbers come from
+
+`lib/briefing.ts` holds the types and one `defaultBriefing` object — route,
+seven hours of forecast, and a rider profile. It stands in for the route and
+forecast APIs, and it is the only thing `app/page.tsx` reads:
+
+```ts
+const briefing = defaultBriefing;
+```
+
+`lib/recommendations.ts` turns that into everything on screen, so the numbers
+move when the data does rather than being typed into the markup:
+
+| Function | Derives |
+| --- | --- |
+| `recommendApparel` | Jersey, base layer and vest from the coldest feels-like and the peak wind, plus the hour to start shedding |
+| `recommendTyrePressure` | Front and rear psi (and bar) for roughly equal tyre drop, from system weight, tyre width and surface |
+| `describeWind` | Vector-averaged wind direction, gusts, and whether each leg is a head, cross or tailwind |
+| `recommendFueling` | Carbs/hr and fluid/hr from intensity, duration and average temperature, plus ride totals and bottle count |
+
+Tyre pressure is calibrated against modern road recommendations rather than
+Berto's charts, which run high for today's wider tyres. The wind panel's
+compass is a hand-drawn SVG: the orange vector points where the wind is
+pushing, and the dashed line is the route's outbound heading, which is what
+makes the head/tailwind split legible.
+
+To connect a real API, fetch into the `Briefing` shape and replace that one
+assignment. Nothing else in the page reads anything else.
 
 ## How the PWA is wired up
 
