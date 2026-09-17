@@ -1,4 +1,7 @@
+"use client";
+
 import Image from "next/image";
+import { useMemo, useState } from "react";
 
 import { ApparelPanel } from "@/components/apparel-panel";
 import { BriefingTabs, type BriefingTab } from "@/components/briefing-tabs";
@@ -8,17 +11,57 @@ import { RouteHeader } from "@/components/route-header";
 import { TemperatureBar } from "@/components/temperature-bar";
 import { TyreWindPanel } from "@/components/tyre-wind-panel";
 import { defaultBriefing } from "@/lib/briefing";
-import {
-  describeWind,
-  recommendApparel,
-  recommendFueling,
-  recommendTyrePressure,
-} from "@/lib/recommendations";
+import { calculateFueling, calculateTirePressure } from "@/lib/calculations";
+import { describeWind, recommendApparel } from "@/lib/recommendations";
+
+const TEMPO_WATTS = 210;
+
+function averageTempC(temps: number[]): number {
+  return temps.reduce((total, temp) => total + temp, 0) / temps.length;
+}
 
 export default function Home() {
-  // Swap this for the route/forecast API response and the whole briefing
-  // follows; nothing below reads anything else.
   const briefing = defaultBriefing;
+  const forecastTempC = averageTempC(briefing.hourly.map((hour) => hour.tempC));
+
+  const [riderWeightKg, setRiderWeightKg] = useState(briefing.rider.weightKg);
+  const [bikeWeightKg, setBikeWeightKg] = useState(briefing.rider.bikeWeightKg);
+  const [tireWidthMm, setTireWidthMm] = useState(briefing.rider.tyreWidthMm);
+  const [isGravel, setIsGravel] = useState(briefing.route.surface === "gravel");
+  const [durationHours, setDurationHours] = useState(briefing.route.movingHours);
+  const [temperatureC, setTemperatureC] = useState(
+    Math.round(forecastTempC * 10) / 10,
+  );
+  const [targetWatts, setTargetWatts] = useState(TEMPO_WATTS);
+
+  const pressure = useMemo(
+    () =>
+      calculateTirePressure({
+        riderWeightKg,
+        bikeWeightKg,
+        tireWidthMm,
+        isGravel,
+      }),
+    [riderWeightKg, bikeWeightKg, tireWidthMm, isGravel],
+  );
+
+  const fueling = useMemo(
+    () =>
+      calculateFueling({
+        durationHours,
+        temperatureC,
+        targetWatts,
+      }),
+    [durationHours, temperatureC, targetWatts],
+  );
+
+  const wettestHour = briefing.hourly.reduce((wettest, hour) =>
+    hour.precipChance > wettest.precipChance ? hour : wettest,
+  );
+  const wetHint =
+    wettestHour.precipChance >= 30
+      ? `${wettestHour.precipChance}% chance of rain at ${wettestHour.time} — take 4 psi out of each tyre for grip on the descents.`
+      : null;
 
   const tabs: BriefingTab[] = [
     {
@@ -33,10 +76,17 @@ export default function Home() {
       shortLabel: "Tires & Wind",
       panel: (
         <TyreWindPanel
-          tyres={recommendTyrePressure(briefing)}
+          riderWeightKg={riderWeightKg}
+          bikeWeightKg={bikeWeightKg}
+          tireWidthMm={tireWidthMm}
+          isGravel={isGravel}
+          onRiderWeightKg={setRiderWeightKg}
+          onBikeWeightKg={setBikeWeightKg}
+          onTireWidthMm={setTireWidthMm}
+          onIsGravel={setIsGravel}
+          pressure={pressure}
+          wetHint={wetHint}
           wind={describeWind(briefing)}
-          rider={briefing.rider}
-          route={briefing.route}
         />
       ),
     },
@@ -46,9 +96,13 @@ export default function Home() {
       shortLabel: "Fueling",
       panel: (
         <FuelingPanel
-          fueling={recommendFueling(briefing)}
-          rider={briefing.rider}
-          route={briefing.route}
+          durationHours={durationHours}
+          temperatureC={temperatureC}
+          targetWatts={targetWatts}
+          onDurationHours={setDurationHours}
+          onTemperatureC={setTemperatureC}
+          onTargetWatts={setTargetWatts}
+          fueling={fueling}
         />
       ),
     },
@@ -74,10 +128,11 @@ export default function Home() {
       <InstallPanel />
 
       <footer className="pt-2 text-xs leading-relaxed text-muted">
-        Every number is derived from the placeholder briefing in{" "}
-        <code className="font-mono text-foreground">lib/briefing.ts</code> —
-        route, hourly forecast and rider profile — so the UI renders complete
-        before any API is connected.
+        Tire pressure and fuelling numbers come from{" "}
+        <code className="font-mono text-foreground">lib/calculations.ts</code>{" "}
+        as you edit the inputs. The route and forecast still come from{" "}
+        <code className="font-mono text-foreground">lib/briefing.ts</code> until
+        the weather API is wired in.
       </footer>
     </main>
   );
