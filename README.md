@@ -63,6 +63,13 @@ current display mode, service worker state and network status, and offers an
    a 320 px screen. Arrow keys, Home and End move between them, with a roving
    `tabindex` and the usual `role="tablist"` wiring.
 
+The route header card has a **Share Briefing to Group Chat** button. It runs
+`toPng` from `html-to-image` (`cacheBust: true`, `pixelRatio: 2`) against a
+`useRef` on the card body, then offers the PNG through `navigator.share` /
+`navigator.canShare({ files })` on mobile. Desktop browsers that cannot share
+files get the image (or the page URL) on the clipboard and a toast:
+"Briefing copied to clipboard!".
+
 ### Where the numbers come from
 
 `lib/briefing.ts` holds the types and one `defaultBriefing` object — route,
