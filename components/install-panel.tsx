@@ -3,7 +3,7 @@
 import { usePwa } from "@/lib/use-pwa";
 
 const STATUS_TONES = {
-  good: "bg-lime/15 text-lime",
+  good: "bg-positive/15 text-positive",
   info: "bg-accent/15 text-accent",
   idle: "bg-white/10 text-muted",
 } as const;

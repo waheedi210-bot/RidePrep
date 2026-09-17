@@ -7,9 +7,10 @@
   --color-border-subtle: #27344f;
   --color-foreground: #e6ecf7;
   --color-muted: #94a3b8;
-  --color-accent: #38bdf8;
-  --color-accent-strong: #0ea5e9;
-  --color-lime: #a3e635;
+  --color-accent: #fc4c02;
+  --color-accent-strong: #ff6a1f;
+  --color-positive: #4ade80;
+  --color-caution: #fbbf24;
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);

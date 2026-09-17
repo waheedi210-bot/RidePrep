@@ -4,7 +4,7 @@
   <!-- Scaled to 75% so the glyph stays inside the maskable safe zone (centre 80% circle). -->
   <g transform="translate(256 256) scale(0.75) translate(-256 -256)">
     <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-      <g stroke="#38bdf8" stroke-width="18">
+      <g stroke="#fc4c02" stroke-width="18">
         <circle cx="160" cy="292" r="76" />
         <circle cx="352" cy="292" r="76" />
       </g>
@@ -17,14 +17,14 @@
         <path d="M322 184 338 158" />
         <path d="M326 178 352 292" />
       </g>
-      <g stroke="#a3e635" stroke-width="16">
+      <g stroke="#fb923c" stroke-width="16">
         <path d="M308 154H352" />
         <path d="M352 154c12 4 13 16 11 26" />
         <path d="M212 170H254" />
       </g>
     </g>
-    <circle cx="256" cy="292" r="16" fill="#a3e635" />
-    <g fill="#38bdf8">
+    <circle cx="256" cy="292" r="16" fill="#fb923c" />
+    <g fill="#fc4c02">
       <circle cx="160" cy="292" r="10" />
       <circle cx="352" cy="292" r="10" />
     </g>
