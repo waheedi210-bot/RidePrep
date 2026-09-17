@@ -45,6 +45,7 @@ current display mode, service worker state and network status, and offers an
 | `npm start`         | Serves the production build                                |
 | `npm run lint`      | ESLint (`eslint-config-next`)                              |
 | `npm run typecheck` | Generates route types, then `tsc --noEmit`                 |
+| `npm test`          | Node's test runner against the weather/wind-chill helpers   |
 | `npm run icons`     | Re-renders the PNG icons and favicon from the SVG sources   |
 
 ## The briefing page
@@ -90,6 +91,42 @@ makes the head/tailwind split legible.
 
 To connect a real API, fetch into the `Briefing` shape and replace that one
 assignment. Nothing else in the page reads anything else.
+
+## Weather API
+
+`GET /api/weather` is a thin App Router route that proxies
+[Open-Meteo](https://api.open-meteo.com/v1/forecast) and adds a wind-chill
+calculation the briefing can consume later.
+
+| Query        | Required | Notes                                                                 |
+| ------------ | -------- | --------------------------------------------------------------------- |
+| `lat`        | yes      | WGS84 latitude, −90 to 90                                             |
+| `lng`        | yes      | WGS84 longitude, −180 to 180                                          |
+| `startTime`  | no       | ISO 8601 instant. Timezone-naive values are treated as UTC. Defaults to now. |
+
+```bash
+curl "http://localhost:3000/api/weather?lat=53.35&lng=-1.82&startTime=2026-09-18T06:30:00Z"
+```
+
+The handler asks Open-Meteo for `temperature_2m`, `relative_humidity_2m`,
+`apparent_temperature`, `wind_speed_10m`, `wind_direction_10m` and `uv_index`
+on both the `current` block and the hourly series (UTC, km/h, °C). It then
+returns:
+
+- `current` — the observation Open-Meteo stamped "now"
+- `hours` — four consecutive hourly slots beginning at the hour that contains
+  `startTime` (so a 06:30 roll-out includes 06:00)
+
+Each observation carries Open-Meteo's Steadman `apparentTemperatureC` plus
+`windChillC` from the NWS metric formula (valid at ≤ 10 °C and ≥ 4.8 km/h).
+`apparentWindChillC` is the colder of the two — how cold exposed skin feels —
+and `windChillDeltaC` is the degrees that takes off the air temperature.
+
+Bad `lat` / `lng` / `startTime` values collect into a 400 with an `issues`
+array rather than failing on the first one. A `startTime` past the forecast
+window is also a 400 (`START_OUT_OF_RANGE`). Open-Meteo timeouts are 504;
+any other upstream failure is 502. Query parsing and the wind-chill formula
+are covered by `npm test` without hitting the network.
 
 ## How the PWA is wired up
 
