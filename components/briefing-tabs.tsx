@@ -5,7 +5,7 @@ import { useId, useState, type KeyboardEvent, type ReactNode } from "react";
 export interface BriefingTab {
   id: string;
   label: string;
-  /** Used below the `sm` breakpoint, where the full label will not fit. */
+  /** Used below the `sm` breakpoint, where the full label may not fit. */
   shortLabel: string;
   panel: ReactNode;
 }
@@ -45,7 +45,10 @@ export function BriefingTabs({ tabs }: { tabs: BriefingTab[] }) {
         role="tablist"
         aria-label="Briefing sections"
         onKeyDown={onKeyDown}
-        className="grid grid-cols-3 border-b border-border-subtle"
+        className="grid border-b border-border-subtle"
+        style={{
+          gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`,
+        }}
       >
         {tabs.map((tab) => {
           const isActive = tab.id === activeId;
@@ -61,7 +64,7 @@ export function BriefingTabs({ tabs }: { tabs: BriefingTab[] }) {
               aria-label={tab.label}
               tabIndex={isActive ? 0 : -1}
               onClick={() => setActiveId(tab.id)}
-              className={`-mb-px border-b-2 px-2 py-3.5 text-center text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent sm:text-sm ${
+              className={`-mb-px border-b-2 px-1 py-3.5 text-center text-[0.6875rem] font-semibold leading-tight transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent sm:px-2 sm:text-sm ${
                 isActive
                   ? "border-accent text-accent"
                   : "border-transparent text-muted hover:text-foreground"

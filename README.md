@@ -58,8 +58,8 @@ current display mode, service worker state and network status, and offers an
 2. **Temperature bar** — a CSS gradient interpolated through a cold-to-hot
    colour scale from each hour's air temperature, with the hourly values below
    it and the largest wind-chill delta called out.
-3. **Three tabs** — apparel layering, tyre pressure and wind, and fuelling
-   targets. Full labels at `sm` and up, short ones below that so three tabs fit
+3. **Four tabs** — apparel layering, tyre pressure, wind, and fuelling
+   targets. Full labels at `sm` and up, short ones below that so four tabs fit
    a 320 px screen. Arrow keys, Home and End move between them, with a roving
    `tabindex` and the usual `role="tablist"` wiring.
 
@@ -80,7 +80,7 @@ for the route and forecast APIs:
 const briefing = defaultBriefing;
 ```
 
-`lib/recommendations.ts` turns the forecast into apparel and wind, and
+`lib/recommendations.ts` turns the forecast into apparel and the Wind tab, and
 `lib/calculations.ts` is what the Tire Pressure and Fueling tabs call as you
 edit the inputs:
 

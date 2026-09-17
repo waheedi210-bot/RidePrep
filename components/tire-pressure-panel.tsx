@@ -1,49 +1,9 @@
 import { Metric } from "@/components/metric";
 import { NumberField } from "@/components/number-field";
-import { WindCompass } from "@/components/wind-compass";
 import type { TirePressureResult } from "@/lib/calculations";
-import type { WindAdvice, WindRelation } from "@/lib/recommendations";
-import { bearingToCompass, formatNumber, psiToBar } from "@/lib/units";
+import { formatNumber, psiToBar } from "@/lib/units";
 
-const RELATION_LABELS: Record<WindRelation, string> = {
-  headwind: "Headwind",
-  crosswind: "Crosswind",
-  tailwind: "Tailwind",
-};
-
-const RELATION_TONES: Record<WindRelation, string> = {
-  headwind: "bg-accent/15 text-accent",
-  crosswind: "bg-caution/15 text-caution",
-  tailwind: "bg-positive/15 text-positive",
-};
-
-function LegChip({
-  leg,
-  relation,
-  bearingDeg,
-}: {
-  leg: string;
-  relation: WindRelation;
-  bearingDeg: number;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface-raised/60 px-4 py-3">
-      <div>
-        <p className="text-sm font-semibold">{leg}</p>
-        <p className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-muted">
-          {bearingToCompass(bearingDeg)} · {Math.round(bearingDeg)}°
-        </p>
-      </div>
-      <span
-        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${RELATION_TONES[relation]}`}
-      >
-        {RELATION_LABELS[relation]}
-      </span>
-    </div>
-  );
-}
-
-export function TyreWindPanel({
+export function TirePressurePanel({
   riderWeightKg,
   bikeWeightKg,
   tireWidthMm,
@@ -54,7 +14,6 @@ export function TyreWindPanel({
   onIsGravel,
   pressure,
   wetHint,
-  wind,
 }: {
   riderWeightKg: number;
   bikeWeightKg: number;
@@ -66,7 +25,6 @@ export function TyreWindPanel({
   onIsGravel: (value: boolean) => void;
   pressure: TirePressureResult;
   wetHint: string | null;
-  wind: WindAdvice;
 }) {
   const systemKg = riderWeightKg + bikeWeightKg;
 
@@ -158,42 +116,6 @@ export function TyreWindPanel({
             {wetHint}
           </p>
         ) : null}
-      </div>
-
-      <div className="border-t border-border-subtle pt-5">
-        <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
-          <WindCompass wind={wind} />
-
-          <div className="flex w-full flex-col gap-3">
-            <div>
-              <p className="font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-muted">
-                Wind from
-              </p>
-              <p className="mt-1 text-xl font-semibold tabular-nums">
-                {wind.fromLabel} {Math.round(wind.fromDeg)}°
-                <span className="ml-2 text-sm font-medium text-muted">
-                  {wind.averageKph} km/h, gusts {wind.maxGustKph}
-                </span>
-              </p>
-            </div>
-
-            <LegChip
-              leg="Outbound"
-              relation={wind.outboundLeg}
-              bearingDeg={wind.outboundBearingDeg}
-            />
-            <LegChip
-              leg="Return"
-              relation={wind.returnLeg}
-              bearingDeg={wind.returnBearingDeg}
-            />
-          </div>
-        </div>
-
-        <p className="mt-4 text-xs leading-relaxed text-muted">
-          The orange vector shows where the wind is pushing you; the dashed line
-          is the route heading out.
-        </p>
       </div>
     </div>
   );

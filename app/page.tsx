@@ -10,7 +10,8 @@ import { FuelingPanel } from "@/components/fueling-panel";
 import { InstallPanel } from "@/components/install-panel";
 import { RouteHeader } from "@/components/route-header";
 import { TemperatureBar } from "@/components/temperature-bar";
-import { TyreWindPanel } from "@/components/tyre-wind-panel";
+import { TirePressurePanel } from "@/components/tire-pressure-panel";
+import { WindPanel } from "@/components/wind-panel";
 import { defaultBriefing } from "@/lib/briefing";
 import { calculateFueling, calculateTirePressure } from "@/lib/calculations";
 import { describeWind, recommendApparel } from "@/lib/recommendations";
@@ -177,16 +178,16 @@ export default function Home() {
   const tabs: BriefingTab[] = [
     {
       id: "apparel",
-      label: "Apparel Layering",
+      label: "Apparel",
       shortLabel: "Apparel",
       panel: <ApparelPanel advice={recommendApparel(briefing)} />,
     },
     {
       id: "tyres",
-      label: "Tire Pressure & Wind",
-      shortLabel: "Tires & Wind",
+      label: "Tire Pressure",
+      shortLabel: "Tires",
       panel: (
-        <TyreWindPanel
+        <TirePressurePanel
           riderWeightKg={riderWeightKg}
           bikeWeightKg={bikeWeightKg}
           tireWidthMm={tireWidthMm}
@@ -197,13 +198,18 @@ export default function Home() {
           onIsGravel={setIsGravel}
           pressure={pressure}
           wetHint={wetHint}
-          wind={describeWind(briefing)}
         />
       ),
     },
     {
+      id: "wind",
+      label: "Wind",
+      shortLabel: "Wind",
+      panel: <WindPanel wind={describeWind(briefing)} />,
+    },
+    {
       id: "fueling",
-      label: "Fueling Targets",
+      label: "Fueling",
       shortLabel: "Fueling",
       panel: (
         <FuelingPanel
