@@ -45,7 +45,7 @@ current display mode, service worker state and network status, and offers an
 | `npm start`         | Serves the production build                                |
 | `npm run lint`      | ESLint (`eslint-config-next`)                              |
 | `npm run typecheck` | Generates route types, then `tsc --noEmit`                 |
-| `npm test`          | Node's test runner against the weather/wind-chill helpers   |
+| `npm test`          | Node's test runner against weather, wind-chill and ride calculators |
 | `npm run icons`     | Re-renders the PNG icons and favicon from the SVG sources   |
 
 ## The briefing page
@@ -66,31 +66,47 @@ current display mode, service worker state and network status, and offers an
 ### Where the numbers come from
 
 `lib/briefing.ts` holds the types and one `defaultBriefing` object — route,
-seven hours of forecast, and a rider profile. It stands in for the route and
-forecast APIs, and it is the only thing `app/page.tsx` reads:
+seven hours of forecast, and a rider profile. It seeds the page and stands in
+for the route and forecast APIs:
 
 ```ts
 const briefing = defaultBriefing;
 ```
 
-`lib/recommendations.ts` turns that into everything on screen, so the numbers
-move when the data does rather than being typed into the markup:
+`lib/recommendations.ts` turns the forecast into apparel and wind, and
+`lib/calculations.ts` is what the Tire Pressure and Fueling tabs call as you
+edit the inputs:
+
+```ts
+const pressure = calculateTirePressure({
+  riderWeightKg,
+  bikeWeightKg,
+  tireWidthMm,
+  isGravel,
+});
+const fueling = calculateFueling({
+  durationHours,
+  temperatureC,
+  targetWatts,
+});
+```
 
 | Function | Derives |
 | --- | --- |
 | `recommendApparel` | Jersey, base layer and vest from the coldest feels-like and the peak wind, plus the hour to start shedding |
-| `recommendTyrePressure` | Front and rear psi (and bar) for roughly equal tyre drop, from system weight, tyre width and surface |
+| `calculateTirePressure` | Front and rear psi at a 40/60 load split, Silca / SRAM equal-drop model (gravel drops another 25 %) |
 | `describeWind` | Vector-averaged wind direction, gusts, and whether each leg is a head, cross or tailwind |
-| `recommendFueling` | Carbs/hr and fluid/hr from intensity, duration and average temperature, plus ride totals and bottle count |
+| `calculateFueling` | Carbs/hr (30–90 g from target watts) and fluid ml/hr (scaled by temperature and power) |
 
-Tyre pressure is calibrated against modern road recommendations rather than
-Berto's charts, which run high for today's wider tyres. The wind panel's
-compass is a hand-drawn SVG: the orange vector points where the wind is
-pushing, and the dashed line is the route's outbound heading, which is what
-makes the head/tailwind split legible.
+The tyre model is calibrated so 70 kg rider + 8 kg bike on 28 mm road tyres
+lands at 49 / 73 psi — Silca's published rear figure at that system weight,
+with the front at two-thirds because it carries 40 % of the load. The wind
+panel's compass is a hand-drawn SVG: the orange vector points where the wind is
+pushing, and the dashed line is the route's outbound heading.
 
-To connect a real API, fetch into the `Briefing` shape and replace that one
-assignment. Nothing else in the page reads anything else.
+To connect a real forecast API, fetch into the `Briefing` shape and replace
+that assignment. Tire pressure and fuelling already recompute from the tab
+inputs through `lib/calculations.ts`.
 
 ## Weather API
 
