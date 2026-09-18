@@ -2,7 +2,7 @@
 
 import { toPng } from "html-to-image";
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 
 import { ApparelPanel } from "@/components/apparel-panel";
 import { BriefingTabs, type BriefingTab } from "@/components/briefing-tabs";
@@ -13,7 +13,12 @@ import { RouteInPanel } from "@/components/route-in-panel";
 import { TemperatureBar } from "@/components/temperature-bar";
 import { TirePressurePanel } from "@/components/tire-pressure-panel";
 import { WindPanel } from "@/components/wind-panel";
-import { defaultBriefing, type RouteSummary } from "@/lib/briefing";
+import {
+  DEFAULT_START_TIME,
+  defaultRider,
+  type HourlyConditions,
+  type RouteSummary,
+} from "@/lib/briefing";
 import {
   calculateFueling,
   calculateTirePressure,
@@ -21,6 +26,7 @@ import {
 } from "@/lib/calculations";
 import {
   fromZonedFields,
+  readLocalTimeZone,
   toZonedDateInput,
   tomorrowAt,
   usableIanaTimeZone,
@@ -152,7 +158,6 @@ function ShareBriefingButton({
 }
 
 function applyImportedRoute(
-  current: RouteSummary,
   imported: {
     name: string;
     region?: string;
@@ -165,59 +170,73 @@ function applyImportedRoute(
     timezone?: string | null;
   },
   startTime: string,
+  fallbackTimezone: string,
 ): RouteSummary {
   return {
-    ...current,
     name: imported.name,
     region: imported.region ?? "Imported route",
     startTime,
     distanceKm: imported.distanceKm,
     elevationGainM: imported.elevationGainM,
     movingHours: imported.movingHours,
+    surface: "road",
     outboundBearingDeg: imported.outboundBearingDeg,
     lat: imported.lat,
     lng: imported.lng,
-    timezone: usableIanaTimeZone(imported.timezone) ?? current.timezone,
+    timezone: usableIanaTimeZone(imported.timezone) ?? fallbackTimezone,
   };
 }
 
+function useLocalTimeZone(): string {
+  return useSyncExternalStore(
+    () => () => undefined,
+    readLocalTimeZone,
+    () => "UTC",
+  );
+}
+
 export default function Home() {
-  const [route, setRoute] = useState(defaultBriefing.route);
-  const [hourly, setHourly] = useState(defaultBriefing.hourly);
+  const localTimeZone = useLocalTimeZone();
+  const [route, setRoute] = useState<RouteSummary | null>(null);
+  const [hourly, setHourly] = useState<HourlyConditions[]>([]);
   const [track, setTrack] = useState<GeoPoint[] | undefined>(undefined);
   const [dateYmd, setDateYmd] = useState(() =>
     toZonedDateInput(
-      tomorrowAt(defaultBriefing.route.startTime, defaultBriefing.route.timezone),
-      defaultBriefing.route.timezone,
+      tomorrowAt(DEFAULT_START_TIME, "UTC"),
+      "UTC",
     ),
   );
-  const [timeHm, setTimeHm] = useState(defaultBriefing.route.startTime);
-  const [forecastSource, setForecastSource] = useState("Sample forecast");
+  const [timeHm, setTimeHm] = useState(DEFAULT_START_TIME);
+  const [forecastSource, setForecastSource] = useState<string | undefined>();
   const [routeMessage, setRouteMessage] = useState<string | null>(
-    "Live Open-Meteo loads for tomorrow’s roll-out.",
+    "Drop a GPX or paste a Ride with GPS link to build the briefing.",
   );
   const [busy, setBusy] = useState(false);
 
-  const [riderWeightKg, setRiderWeightKg] = useState(defaultBriefing.rider.weightKg);
-  const [bikeWeightKg, setBikeWeightKg] = useState(defaultBriefing.rider.bikeWeightKg);
-  const [tireWidthMm, setTireWidthMm] = useState(defaultBriefing.rider.tyreWidthMm);
+  const [riderWeightKg, setRiderWeightKg] = useState(defaultRider.weightKg);
+  const [bikeWeightKg, setBikeWeightKg] = useState(defaultRider.bikeWeightKg);
+  const [tireWidthMm, setTireWidthMm] = useState(defaultRider.tyreWidthMm);
   const [rimInnerWidthMm, setRimInnerWidthMm] = useState(21);
   const [setup, setSetup] = useState<TireSetup>("tubeless");
-  const [isGravel, setIsGravel] = useState(defaultBriefing.route.surface === "gravel");
-  const [durationHours, setDurationHours] = useState(defaultBriefing.route.movingHours);
-  const [temperatureC, setTemperatureC] = useState(
-    Math.round(averageTempC(defaultBriefing.hourly.map((hour) => hour.tempC)) * 10) / 10,
-  );
+  const [isGravel, setIsGravel] = useState(false);
+  const [durationHours, setDurationHours] = useState(3);
+  const [temperatureC, setTemperatureC] = useState(15);
   const [targetWatts, setTargetWatts] = useState(TEMPO_WATTS);
   const [giTolerance, setGiTolerance] = useState(1);
   const briefingRef = useRef<HTMLDivElement>(null);
 
+  const briefingTimeZone = route?.timezone ?? localTimeZone;
   const startInstant = useMemo(
-    () => fromZonedFields(dateYmd, timeHm, route.timezone),
-    [dateYmd, timeHm, route.timezone],
+    () => fromZonedFields(dateYmd, timeHm, briefingTimeZone),
+    [dateYmd, timeHm, briefingTimeZone],
   );
 
   useEffect(() => {
+    if (!route) {
+      return;
+    }
+
+    const loadedRoute = route;
     const controller = new AbortController();
 
     async function load() {
@@ -227,20 +246,22 @@ export default function Home() {
 
       try {
         const payload = await requestBriefingWeather({
-          lat: route.lat,
-          lng: route.lng,
+          lat: loadedRoute.lat,
+          lng: loadedRoute.lng,
           startTime: startInstant,
-          movingHours: route.movingHours,
+          movingHours: loadedRoute.movingHours,
           points: track,
           signal: controller.signal,
         });
         const zone =
-          usableIanaTimeZone(payload.location.timezone) ?? route.timezone;
+          usableIanaTimeZone(payload.location.timezone) ?? loadedRoute.timezone;
         const nextHourly = observationsToHourly(payload.hours, zone);
 
         if (!controller.signal.aborted && nextHourly.length > 0) {
-          if (zone !== route.timezone) {
-            setRoute((current) => ({ ...current, timezone: zone }));
+          if (zone !== loadedRoute.timezone) {
+            setRoute((current) =>
+              current ? { ...current, timezone: zone } : current,
+            );
           }
           setHourly(nextHourly);
           setTemperatureC(
@@ -253,7 +274,7 @@ export default function Home() {
           return;
         }
 
-        setForecastSource("Sample forecast (live lookup failed)");
+        setForecastSource(undefined);
         setRouteMessage(
           error instanceof Error ? error.message : "Could not load the forecast.",
         );
@@ -263,7 +284,7 @@ export default function Home() {
     void load();
 
     return () => controller.abort();
-  }, [route.lat, route.lng, route.movingHours, route.timezone, startInstant, track]);
+  }, [route, startInstant, track]);
 
   const dewPointC = useMemo(
     () => averageTempC(hourly.map((hour) => hour.dewPointC)),
@@ -291,27 +312,32 @@ export default function Home() {
         targetWatts,
         dewPointC,
         giTolerance,
-        sweatRate: defaultBriefing.rider.sweatRate,
+        sweatRate: defaultRider.sweatRate,
       }),
     [durationHours, temperatureC, targetWatts, dewPointC, giTolerance],
   );
 
-  const briefing = useMemo(
-    () => ({
+  const briefing = useMemo(() => {
+    if (!route) {
+      return null;
+    }
+
+    return {
       route: {
         ...route,
         startTime: timeHm,
         surface: isGravel ? ("gravel" as const) : ("road" as const),
       },
       hourly,
-      rider: defaultBriefing.rider,
-    }),
-    [route, hourly, isGravel, timeHm],
-  );
+      rider: defaultRider,
+    };
+  }, [route, hourly, isGravel, timeHm]);
 
-  const wettestHour = hourly.reduce((wettest, hour) =>
-    hour.precipChance > wettest.precipChance ? hour : wettest,
-  );
+  const wettestHour = hourly[0]
+    ? hourly.reduce((wettest, hour) =>
+        hour.precipChance > wettest.precipChance ? hour : wettest,
+      )
+    : null;
   const wetHint =
     wettestHour && wettestHour.precipChance >= 30
       ? `${wettestHour.precipChance}% chance of rain at ${wettestHour.time} — take 4 psi out of each tyre for grip on the descents.`
@@ -327,7 +353,7 @@ export default function Home() {
       setTrack(parsed.points);
       setDurationHours(parsed.movingHours);
       setIsGravel(/gravel/i.test(parsed.name));
-      setRoute((current) => applyImportedRoute(current, parsed, timeHm));
+      setRoute(applyImportedRoute(parsed, timeHm, briefingTimeZone));
       setRouteMessage(`Loaded ${parsed.name} from GPX.`);
     } catch (error) {
       setRouteMessage(
@@ -371,7 +397,7 @@ export default function Home() {
 
       setTrack(body.points);
       setDurationHours(body.movingHours);
-      setRoute((current) => applyImportedRoute(current, body, timeHm));
+      setRoute(applyImportedRoute(body, timeHm, briefingTimeZone));
       setRouteMessage(`Loaded ${body.name} from Ride with GPS.`);
     } catch (error) {
       setRouteMessage(
@@ -382,78 +408,82 @@ export default function Home() {
     }
   };
 
-  const onReset = () => {
+  const onClear = () => {
     setTrack(undefined);
-    setRoute(defaultBriefing.route);
-    setHourly(defaultBriefing.hourly);
-    setDurationHours(defaultBriefing.route.movingHours);
+    setRoute(null);
+    setHourly([]);
+    setDurationHours(3);
     setIsGravel(false);
-    setTimeHm(defaultBriefing.route.startTime);
+    setForecastSource(undefined);
+    setTimeHm(DEFAULT_START_TIME);
     setDateYmd(
       toZonedDateInput(
-        tomorrowAt(defaultBriefing.route.startTime, defaultBriefing.route.timezone),
-        defaultBriefing.route.timezone,
+        tomorrowAt(DEFAULT_START_TIME, localTimeZone),
+        localTimeZone,
       ),
     );
-    setRouteMessage("Back to the Winnats Pass sample route.");
+    setRouteMessage("Drop a GPX or paste a Ride with GPS link to build the briefing.");
   };
 
-  const tabs: BriefingTab[] = [
-    {
-      id: "apparel",
-      label: "Apparel",
-      shortLabel: "Apparel",
-      panel: <ApparelPanel advice={recommendApparel(briefing)} />,
-    },
-    {
-      id: "tyres",
-      label: "Tire Pressure",
-      shortLabel: "Tires",
-      panel: (
-        <TirePressurePanel
-          riderWeightKg={riderWeightKg}
-          bikeWeightKg={bikeWeightKg}
-          tireWidthMm={tireWidthMm}
-          rimInnerWidthMm={rimInnerWidthMm}
-          setup={setup}
-          isGravel={isGravel}
-          onRiderWeightKg={setRiderWeightKg}
-          onBikeWeightKg={setBikeWeightKg}
-          onTireWidthMm={setTireWidthMm}
-          onRimInnerWidthMm={setRimInnerWidthMm}
-          onSetup={setSetup}
-          onIsGravel={setIsGravel}
-          pressure={pressure}
-          wetHint={wetHint}
-        />
-      ),
-    },
-    {
-      id: "wind",
-      label: "Wind",
-      shortLabel: "Wind",
-      panel: <WindPanel wind={describeWind(briefing)} />,
-    },
-    {
-      id: "fueling",
-      label: "Fueling",
-      shortLabel: "Fueling",
-      panel: (
-        <FuelingPanel
-          durationHours={durationHours}
-          temperatureC={temperatureC}
-          targetWatts={targetWatts}
-          giTolerance={giTolerance}
-          onDurationHours={setDurationHours}
-          onTemperatureC={setTemperatureC}
-          onTargetWatts={setTargetWatts}
-          onGiTolerance={setGiTolerance}
-          fueling={fueling}
-          dewPointC={Math.round(dewPointC * 10) / 10}
-        />
-      ),
-    },
-  ];
+  const tabs: BriefingTab[] =
+    briefing && hourly.length > 0
+      ? [
+          {
+            id: "apparel",
+            label: "Apparel",
+            shortLabel: "Apparel",
+            panel: <ApparelPanel advice={recommendApparel(briefing)} />,
+          },
+          {
+            id: "tyres",
+            label: "Tire Pressure",
+            shortLabel: "Tires",
+            panel: (
+              <TirePressurePanel
+                riderWeightKg={riderWeightKg}
+                bikeWeightKg={bikeWeightKg}
+                tireWidthMm={tireWidthMm}
+                rimInnerWidthMm={rimInnerWidthMm}
+                setup={setup}
+                isGravel={isGravel}
+                onRiderWeightKg={setRiderWeightKg}
+                onBikeWeightKg={setBikeWeightKg}
+                onTireWidthMm={setTireWidthMm}
+                onRimInnerWidthMm={setRimInnerWidthMm}
+                onSetup={setSetup}
+                onIsGravel={setIsGravel}
+                pressure={pressure}
+                wetHint={wetHint}
+              />
+            ),
+          },
+          {
+            id: "wind",
+            label: "Wind",
+            shortLabel: "Wind",
+            panel: <WindPanel wind={describeWind(briefing)} />,
+          },
+          {
+            id: "fueling",
+            label: "Fueling",
+            shortLabel: "Fueling",
+            panel: (
+              <FuelingPanel
+                durationHours={durationHours}
+                temperatureC={temperatureC}
+                targetWatts={targetWatts}
+                giTolerance={giTolerance}
+                onDurationHours={setDurationHours}
+                onTemperatureC={setTemperatureC}
+                onTargetWatts={setTargetWatts}
+                onGiTolerance={setGiTolerance}
+                fueling={fueling}
+                dewPointC={Math.round(dewPointC * 10) / 10}
+              />
+            ),
+          },
+        ]
+      : [];
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-4 px-4 pb-12 pt-6 sm:gap-5 sm:px-6 sm:pt-8">
@@ -470,27 +500,39 @@ export default function Home() {
       </div>
 
       <RouteInPanel
-        route={route}
+        timezone={briefingTimeZone}
         dateYmd={dateYmd}
         timeHm={timeHm}
         onDateYmd={setDateYmd}
         onTimeHm={setTimeHm}
         onGpxFile={(file) => void onGpxFile(file)}
         onRouteUrl={(url) => void onRouteUrl(url)}
-        onReset={onReset}
+        onClear={route ? onClear : undefined}
         busy={busy}
         message={routeMessage}
       />
 
-      <RouteHeader route={briefing.route} captureRef={briefingRef}>
-        <ShareBriefingButton
-          targetRef={briefingRef}
-          title={briefing.route.name}
-          text={`${briefing.route.name} · ${formatNumber(kmToMiles(briefing.route.distanceKm), 1)} mi · ${formatNumber(metresToFeet(briefing.route.elevationGainM))} ft`}
-        />
-      </RouteHeader>
-      <TemperatureBar hourly={hourly} source={forecastSource} />
-      <BriefingTabs tabs={tabs} />
+      {briefing ? (
+        <>
+          <RouteHeader route={briefing.route} captureRef={briefingRef}>
+            <ShareBriefingButton
+              targetRef={briefingRef}
+              title={briefing.route.name}
+              text={`${briefing.route.name} · ${formatNumber(kmToMiles(briefing.route.distanceKm), 1)} mi · ${formatNumber(metresToFeet(briefing.route.elevationGainM))} ft`}
+            />
+          </RouteHeader>
+          <TemperatureBar hourly={hourly} source={forecastSource} />
+          {tabs.length > 0 ? <BriefingTabs tabs={tabs} /> : null}
+        </>
+      ) : (
+        <section className="rounded-2xl border border-dashed border-border-subtle bg-surface px-5 py-8 text-center sm:px-6">
+          <p className="text-sm font-semibold">No route yet</p>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            Import a Ride with GPS link or a GPX and the briefing will fill in
+            distance, elevation, forecast, tires and fueling.
+          </p>
+        </section>
+      )}
       <InstallPanel />
 
       <footer className="pt-2 text-xs leading-relaxed text-muted">

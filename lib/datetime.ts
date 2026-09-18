@@ -95,6 +95,14 @@ export function formatHourLabel(instant: Date, timeZone: string): string {
   return toZonedTimeInput(instant, timeZone);
 }
 
+export function readLocalTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
 const IGNORED_ZONES = new Set(["UTC", "GMT", "Etc/UTC", "Etc/GMT"]);
 
 /** IANA names we can feed to `Intl`, excluding the UTC aliases Open-Meteo uses. */

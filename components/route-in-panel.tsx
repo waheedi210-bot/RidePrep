@@ -2,28 +2,26 @@
 
 import { useRef, useState } from "react";
 
-import type { RouteSummary } from "@/lib/briefing";
-
 export function RouteInPanel({
-  route,
+  timezone,
   dateYmd,
   timeHm,
   onDateYmd,
   onTimeHm,
   onGpxFile,
   onRouteUrl,
-  onReset,
+  onClear,
   busy,
   message,
 }: {
-  route: RouteSummary;
+  timezone: string;
   dateYmd: string;
   timeHm: string;
   onDateYmd: (value: string) => void;
   onTimeHm: (value: string) => void;
   onGpxFile: (file: File) => void;
   onRouteUrl: (url: string) => void;
-  onReset: () => void;
+  onClear?: () => void;
   busy: boolean;
   message: string | null;
 }) {
@@ -37,7 +35,7 @@ export function RouteInPanel({
       </h2>
       <p className="mt-2 text-sm text-muted">
         Drop a GPX, or paste a Ride with GPS link. Strava routes need a GPX
-        export. Roll-out is {route.timezone.replace(/_/g, " ")}.
+        export. Roll-out is {timezone.replace(/_/g, " ")}.
       </p>
 
       <div className="mt-4 grid grid-cols-2 gap-3">
@@ -88,14 +86,16 @@ export function RouteInPanel({
         >
           Upload GPX
         </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onReset}
-          className="rounded-xl border border-border-subtle px-4 py-2.5 text-sm font-semibold text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
-        >
-          Winnats
-        </button>
+        {onClear ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onClear}
+            className="rounded-xl border border-border-subtle px-4 py-2.5 text-sm font-semibold text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
+          >
+            Clear
+          </button>
+        ) : null}
       </div>
 
       <form
