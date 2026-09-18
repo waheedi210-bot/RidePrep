@@ -63,23 +63,24 @@ export function TemperatureBar({
       aria-labelledby="temperature-heading"
       className="rounded-2xl border border-border-subtle bg-surface p-5 sm:p-6"
     >
-      <div className="flex items-baseline justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <h2
           id="temperature-heading"
           className="font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-accent"
         >
           Hourly temperature
         </h2>
-        <p className="text-xs tabular-nums text-muted">
-          {coldest.tempC}° → {warmest.tempC}°
-        </p>
+        <div className="text-right">
+          <p className="text-xs tabular-nums text-muted">
+            {coldest.tempC}° → {warmest.tempC}°
+          </p>
+          {source ? (
+            <p className="mt-1 font-mono text-[0.625rem] uppercase tracking-[0.14em] text-muted">
+              {source}
+            </p>
+          ) : null}
+        </div>
       </div>
-
-      {source ? (
-        <p className="mt-2 font-mono text-[0.625rem] uppercase tracking-[0.14em] text-muted">
-          {source}
-        </p>
-      ) : null}
 
       <div
         role="img"
