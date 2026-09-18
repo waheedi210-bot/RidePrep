@@ -9,6 +9,7 @@ describe("resolveRouteUrl", () => {
 
     assert.equal(resolved.provider, "rwgps");
     assert.equal(resolved.fetchUrl, "https://ridewithgps.com/routes/12345678.gpx");
+    assert.equal(resolved.jsonUrl, "https://ridewithgps.com/routes/12345678.json");
   });
 
   it("tells the rider to export GPX from Strava", () => {

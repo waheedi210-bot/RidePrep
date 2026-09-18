@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { apparentWindChillC, windChillC } from "./wind-chill.ts";
 import {
   observe,
+  parseOpenMeteoTime,
   parseWeatherQuery,
   sliceHourlyFromStart,
   type OpenMeteoHourly,
@@ -120,6 +121,22 @@ describe("sliceHourlyFromStart", () => {
     );
 
     assert.ok("error" in result);
+  });
+});
+
+describe("parseOpenMeteoTime", () => {
+  it("treats naive stamps as UTC by default", () => {
+    assert.equal(
+      parseOpenMeteoTime("2026-09-19T06:00").toISOString(),
+      "2026-09-19T06:00:00.000Z",
+    );
+  });
+
+  it("interprets naive stamps in the forecast's named zone", () => {
+    assert.equal(
+      parseOpenMeteoTime("2026-09-19T06:00", "America/New_York").toISOString(),
+      "2026-09-19T10:00:00.000Z",
+    );
   });
 });
 

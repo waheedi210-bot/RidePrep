@@ -54,19 +54,28 @@ export function totalDistanceKm(points: GeoPoint[]): number {
 
 export function elevationGainM(points: GeoPoint[]): number {
   let gain = 0;
+  let last: number | null = null;
 
-  for (let index = 1; index < points.length; index += 1) {
-    const prev = points[index - 1].eleM;
-    const next = points[index].eleM;
-
-    if (prev == null || next == null) {
+  for (const point of points) {
+    if (point.eleM == null) {
       continue;
     }
 
-    const delta = next - prev;
+    if (last == null) {
+      last = point.eleM;
+      continue;
+    }
 
-    if (delta > ELEVATION_NOISE_M) {
+    const delta = point.eleM - last;
+
+    // Dense GPX steps are often 1–2 m. Count a climb once it moves more than
+    // GPS noise from the last committed elevation, then follow descents the
+    // same way so we do not add the next rise twice.
+    if (delta >= ELEVATION_NOISE_M) {
       gain += delta;
+      last = point.eleM;
+    } else if (delta <= -ELEVATION_NOISE_M) {
+      last = point.eleM;
     }
   }
 

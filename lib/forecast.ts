@@ -56,13 +56,18 @@ export async function loadForecast(options: {
   hours: number;
 }): Promise<WeatherPayload> {
   const forecast = await fetchOpenMeteoForecast(options.lat, options.lng);
-  const current = observeCurrent(forecast.current);
+  const current = observeCurrent(forecast.current, forecast.timezone);
 
   if (!current) {
     throw new Error("Open-Meteo omitted the current observation.");
   }
 
-  const sliced = sliceHourlyFromStart(forecast.hourly, options.startTime, options.hours);
+  const sliced = sliceHourlyFromStart(
+    forecast.hourly,
+    options.startTime,
+    options.hours,
+    forecast.timezone,
+  );
 
   if ("error" in sliced) {
     throw new Error(sliced.error);

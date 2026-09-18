@@ -45,6 +45,16 @@ describe("elevationGainM", () => {
 
     assert.equal(gain, 80);
   });
+
+  it("counts a climb made of many 1 m steps on a dense GPX", () => {
+    const points = Array.from({ length: 11 }, (_, index) => ({
+      lat: 0,
+      lng: index * 0.0001,
+      eleM: 100 + index,
+    }));
+
+    assert.equal(elevationGainM(points), 9);
+  });
 });
 
 describe("sampleHourlyPoints", () => {

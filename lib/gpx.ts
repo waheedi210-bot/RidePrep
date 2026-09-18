@@ -30,17 +30,17 @@ function innerTag(xml: string, tag: string): string | null {
   return match ? match[1].trim() : null;
 }
 
-function parsePoints(xml: string): GeoPoint[] {
+function parseTaggedPoints(xml: string, tag: "trkpt" | "rtept" | "wpt"): GeoPoint[] {
   const points: GeoPoint[] = [];
-  const pattern = /<(trkpt|rtept|wpt)\b([^>]*)>([\s\S]*?)<\/\1>/gi;
+  const pattern = new RegExp(`<${tag}\\b([^>]*)>([\\s\\S]*?)</${tag}>`, "gi");
   let match: RegExpExecArray | null = pattern.exec(xml);
 
   while (match) {
-    const lat = Number(attribute(match[2], "lat"));
-    const lng = Number(attribute(match[2], "lon"));
+    const lat = Number(attribute(match[1], "lat"));
+    const lng = Number(attribute(match[1], "lon"));
 
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      const eleRaw = innerTag(match[3], "ele");
+      const eleRaw = innerTag(match[2], "ele");
       const eleM = eleRaw != null && eleRaw !== "" ? Number(eleRaw) : undefined;
 
       points.push({
@@ -54,6 +54,22 @@ function parsePoints(xml: string): GeoPoint[] {
   }
 
   return points;
+}
+
+function parsePoints(xml: string): GeoPoint[] {
+  const track = parseTaggedPoints(xml, "trkpt");
+
+  if (track.length >= 2) {
+    return track;
+  }
+
+  const route = parseTaggedPoints(xml, "rtept");
+
+  if (route.length >= 2) {
+    return route;
+  }
+
+  return parseTaggedPoints(xml, "wpt");
 }
 
 function parseName(xml: string, fallback: string): string {

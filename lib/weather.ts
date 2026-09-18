@@ -1,3 +1,4 @@
+import { fromZonedFields } from "./datetime.ts";
 import {
   apparentWindChillC,
   isWindChillApplicable,
@@ -228,17 +229,23 @@ export function roundTo(value: number, decimals: number): number {
   return Math.round(value * factor) / factor;
 }
 
-/** Open-Meteo omits the `Z` when `timezone=UTC`; treat those as UTC. */
-export function parseOpenMeteoTime(value: string): Date {
+/** Open-Meteo omits the zone when times are in the requested timezone. */
+export function parseOpenMeteoTime(value: string, timeZone = "UTC"): Date {
   if (/[zZ]|[+-]\d{2}:?\d{2}$/.test(value)) {
     return new Date(value);
+  }
+
+  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/.exec(value);
+
+  if (match && timeZone !== "UTC" && timeZone !== "GMT") {
+    return fromZonedFields(match[1], match[2], timeZone);
   }
 
   return new Date(`${value}Z`);
 }
 
-export function toIsoUtc(value: string): string {
-  return parseOpenMeteoTime(value).toISOString();
+export function toIsoUtc(value: string, timeZone = "UTC"): string {
+  return parseOpenMeteoTime(value, timeZone).toISOString();
 }
 
 export function observe(input: {
@@ -252,6 +259,7 @@ export function observe(input: {
   uvIndex: number;
   precipChance?: number;
   dewPointC?: number;
+  timeZone?: string;
 }): WeatherObservation {
   const chill = windChillC(input.temperatureC, input.windSpeedKph);
   const apparent = apparentWindChillC(
@@ -264,7 +272,7 @@ export function observe(input: {
   const windGustKph = Math.max(input.windGustKph ?? input.windSpeedKph, input.windSpeedKph);
 
   return {
-    time: toIsoUtc(input.time),
+    time: toIsoUtc(input.time, input.timeZone),
     temperatureC: roundTo(input.temperatureC, 1),
     humidityPct: Math.round(input.humidityPct),
     apparentTemperatureC: roundTo(input.apparentTemperatureC, 1),
@@ -286,6 +294,7 @@ export function observe(input: {
 
 export function observeCurrent(
   current: OpenMeteoCurrent,
+  timeZone = "UTC",
 ): WeatherObservation | null {
   return observeNullable({
     time: current.time,
@@ -298,12 +307,14 @@ export function observeCurrent(
     uvIndex: current.uv_index,
     precipChance: current.precipitation_probability,
     dewPointC: current.dew_point_2m,
+    timeZone,
   });
 }
 
 export function observeHourly(
   hourly: OpenMeteoHourly,
   index: number,
+  timeZone = "UTC",
 ): WeatherObservation | null {
   return observeNullable({
     time: hourly.time[index],
@@ -316,6 +327,7 @@ export function observeHourly(
     uvIndex: hourly.uv_index[index],
     precipChance: hourly.precipitation_probability?.[index],
     dewPointC: hourly.dew_point_2m?.[index],
+    timeZone,
   });
 }
 
@@ -330,6 +342,7 @@ function observeNullable(input: {
   uvIndex: number | null | undefined;
   precipChance?: number | null;
   dewPointC?: number | null;
+  timeZone?: string;
 }): WeatherObservation | null {
   if (
     input.time === undefined ||
@@ -353,6 +366,7 @@ function observeNullable(input: {
     uvIndex: input.uvIndex ?? 0,
     precipChance: input.precipChance ?? undefined,
     dewPointC: input.dewPointC ?? undefined,
+    timeZone: input.timeZone,
   });
 }
 
@@ -364,6 +378,7 @@ export function sliceHourlyFromStart(
   hourly: OpenMeteoHourly,
   start: Date,
   count = FORECAST_HOURS,
+  timeZone = "UTC",
 ): { hours: WeatherObservation[] } | { error: string } {
   const hourStartMs = Date.UTC(
     start.getUTCFullYear(),
@@ -373,7 +388,7 @@ export function sliceHourlyFromStart(
   );
 
   const startIndex = hourly.time.findIndex(
-    (time) => parseOpenMeteoTime(time).getTime() >= hourStartMs,
+    (time) => parseOpenMeteoTime(time, timeZone).getTime() >= hourStartMs,
   );
 
   if (startIndex === -1) {
@@ -386,7 +401,7 @@ export function sliceHourlyFromStart(
   const hours: WeatherObservation[] = [];
 
   for (let index = startIndex; index < hourly.time.length && hours.length < count; index += 1) {
-    const observation = observeHourly(hourly, index);
+    const observation = observeHourly(hourly, index, timeZone);
 
     if (observation) {
       hours.push(observation);

@@ -94,3 +94,19 @@ export function tomorrowAt(timeHm: string, timeZone: string, now = new Date()): 
 export function formatHourLabel(instant: Date, timeZone: string): string {
   return toZonedTimeInput(instant, timeZone);
 }
+
+const IGNORED_ZONES = new Set(["UTC", "GMT", "Etc/UTC", "Etc/GMT"]);
+
+/** IANA names we can feed to `Intl`, excluding the UTC aliases Open-Meteo uses. */
+export function usableIanaTimeZone(value: string | null | undefined): string | null {
+  if (!value || IGNORED_ZONES.has(value)) {
+    return null;
+  }
+
+  try {
+    Intl.DateTimeFormat("en-GB", { timeZone: value });
+    return value;
+  } catch {
+    return null;
+  }
+}

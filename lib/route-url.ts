@@ -8,6 +8,7 @@ export type RouteProvider = "rwgps" | "strava" | "gpx-url";
 export interface ResolvedRouteUrl {
   provider: RouteProvider;
   fetchUrl?: string;
+  jsonUrl?: string;
   stravaHint?: string;
 }
 
@@ -70,6 +71,7 @@ export function resolveRouteUrl(raw: string): ResolvedRouteUrl {
     return {
       provider: "rwgps",
       fetchUrl: `https://ridewithgps.com/routes/${id}.gpx`,
+      jsonUrl: `https://ridewithgps.com/routes/${id}.json`,
     };
   }
 

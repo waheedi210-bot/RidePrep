@@ -1,3 +1,4 @@
+import { usableIanaTimeZone } from "./datetime.ts";
 import { isOpenMeteoForecast, type OpenMeteoForecast } from "./weather.ts";
 
 export const OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast";
@@ -45,7 +46,7 @@ export async function fetchOpenMeteoForecast(
 
   url.searchParams.set("latitude", lat.toFixed(4));
   url.searchParams.set("longitude", lng.toFixed(4));
-  url.searchParams.set("timezone", "UTC");
+  url.searchParams.set("timezone", "auto");
   url.searchParams.set("timeformat", "iso8601");
   url.searchParams.set("temperature_unit", "celsius");
   url.searchParams.set("wind_speed_unit", "kmh");
@@ -110,4 +111,34 @@ export async function fetchOpenMeteoForecast(
   }
 
   return body;
+}
+
+export async function fetchIanaTimezone(
+  lat: number,
+  lng: number,
+): Promise<string | null> {
+  const url = new URL(OPEN_METEO_URL);
+
+  url.searchParams.set("latitude", lat.toFixed(4));
+  url.searchParams.set("longitude", lng.toFixed(4));
+  url.searchParams.set("timezone", "auto");
+  url.searchParams.set("forecast_days", "1");
+  url.searchParams.set("current", "temperature_2m");
+
+  try {
+    const response = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      next: { revalidate: REVALIDATE_SECONDS },
+    });
+    const body = (await response.json()) as { timezone?: string };
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return usableIanaTimeZone(body.timezone);
+  } catch {
+    return null;
+  }
 }

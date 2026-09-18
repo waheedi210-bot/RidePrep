@@ -23,6 +23,7 @@ import {
   fromZonedFields,
   toZonedDateInput,
   tomorrowAt,
+  usableIanaTimeZone,
 } from "@/lib/datetime";
 import { observationsToHourly } from "@/lib/forecast";
 import type { GeoPoint } from "@/lib/geo";
@@ -154,19 +155,21 @@ function applyImportedRoute(
   current: RouteSummary,
   imported: {
     name: string;
+    region?: string;
     lat: number;
     lng: number;
     distanceKm: number;
     elevationGainM: number;
     movingHours: number;
     outboundBearingDeg: number;
+    timezone?: string | null;
   },
   startTime: string,
 ): RouteSummary {
   return {
     ...current,
     name: imported.name,
-    region: "Imported route",
+    region: imported.region ?? "Imported route",
     startTime,
     distanceKm: imported.distanceKm,
     elevationGainM: imported.elevationGainM,
@@ -174,6 +177,7 @@ function applyImportedRoute(
     outboundBearingDeg: imported.outboundBearingDeg,
     lat: imported.lat,
     lng: imported.lng,
+    timezone: usableIanaTimeZone(imported.timezone) ?? current.timezone,
   };
 }
 
@@ -230,9 +234,14 @@ export default function Home() {
           points: track,
           signal: controller.signal,
         });
-        const nextHourly = observationsToHourly(payload.hours, route.timezone);
+        const zone =
+          usableIanaTimeZone(payload.location.timezone) ?? route.timezone;
+        const nextHourly = observationsToHourly(payload.hours, zone);
 
         if (!controller.signal.aborted && nextHourly.length > 0) {
+          if (zone !== route.timezone) {
+            setRoute((current) => ({ ...current, timezone: zone }));
+          }
           setHourly(nextHourly);
           setTemperatureC(
             Math.round(averageTempC(nextHourly.map((hour) => hour.tempC)) * 10) / 10,
@@ -340,12 +349,14 @@ export default function Home() {
       const body = (await response.json()) as
         | {
             name: string;
+            region?: string;
             lat: number;
             lng: number;
             distanceKm: number;
             elevationGainM: number;
             movingHours: number;
             outboundBearingDeg: number;
+            timezone?: string | null;
             points: GeoPoint[];
           }
         | { error?: { message?: string } };

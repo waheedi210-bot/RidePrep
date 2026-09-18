@@ -7,6 +7,7 @@ import {
   toZonedDateInput,
   toZonedTimeInput,
   tomorrowAt,
+  usableIanaTimeZone,
 } from "./datetime.ts";
 
 describe("fromZonedFields", () => {
@@ -28,6 +29,15 @@ describe("fromZonedFields", () => {
     assert.equal(toZonedDateInput(instant, "Europe/London"), "2026-07-18");
     assert.equal(toZonedTimeInput(instant, "Europe/London"), "06:30");
     assert.equal(formatHourLabel(instant, "Europe/London"), "06:30");
+  });
+});
+
+describe("usableIanaTimeZone", () => {
+  it("keeps named zones and drops UTC aliases", () => {
+    assert.equal(usableIanaTimeZone("America/New_York"), "America/New_York");
+    assert.equal(usableIanaTimeZone("Europe/London"), "Europe/London");
+    assert.equal(usableIanaTimeZone("GMT"), null);
+    assert.equal(usableIanaTimeZone("UTC"), null);
   });
 });
 
