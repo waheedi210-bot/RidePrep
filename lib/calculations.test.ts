@@ -43,6 +43,15 @@ describe("calculateTirePressure", () => {
     assert.ok(road32.rearPsi < 73);
     assert.ok(gravel32.rearPsi < road32.rearPsi);
   });
+
+  it("drops pressure for a wider inner rim and for tubeless", () => {
+    const baseline = calculateTirePressure(road);
+    const wideRim = calculateTirePressure({ ...road, rimInnerWidthMm: 25 });
+    const tubeless = calculateTirePressure({ ...road, setup: "tubeless" });
+
+    assert.ok(wideRim.rearPsi < baseline.rearPsi);
+    assert.ok(tubeless.rearPsi < baseline.rearPsi);
+  });
 });
 
 describe("calculateFueling", () => {
@@ -80,5 +89,41 @@ describe("calculateFueling", () => {
 
     assert.ok(hotHard.fluidMlPerHour > coolEasy.fluidMlPerHour);
     assert.ok(hotHard.carbsPerHour > coolEasy.carbsPerHour);
+  });
+
+  it("drops carbohydrate when GI tolerance is turned down", () => {
+    const full = calculateFueling({
+      durationHours: 3,
+      temperatureC: 15,
+      targetWatts: 210,
+      giTolerance: 1,
+    });
+    const sensitive = calculateFueling({
+      durationHours: 3,
+      temperatureC: 15,
+      targetWatts: 210,
+      giTolerance: 0,
+    });
+
+    assert.equal(sensitive.carbsPerHour, 30);
+    assert.ok(full.carbsPerHour > sensitive.carbsPerHour);
+  });
+
+  it("adds fluid when dew point is muggy", () => {
+    const dry = calculateFueling({
+      durationHours: 3,
+      temperatureC: 22,
+      dewPointC: 8,
+      targetWatts: 180,
+    });
+    const muggy = calculateFueling({
+      durationHours: 3,
+      temperatureC: 22,
+      dewPointC: 22,
+      targetWatts: 180,
+    });
+
+    assert.ok(muggy.fluidMlPerHour > dry.fluidMlPerHour);
+    assert.ok(muggy.sodiumPerHourMg > dry.sodiumPerHourMg);
   });
 });

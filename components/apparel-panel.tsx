@@ -37,6 +37,12 @@ export function ApparelPanel({ advice }: { advice: ApparelAdvice }) {
           the vest, or you will overheat on the last climb.
         </p>
       ) : null}
+
+      {advice.sunscreenHint ? (
+        <p className="mt-3 rounded-xl border border-caution/25 bg-caution/10 px-4 py-3 text-xs leading-relaxed text-caution">
+          {advice.sunscreenHint}
+        </p>
+      ) : null}
     </div>
   );
 }

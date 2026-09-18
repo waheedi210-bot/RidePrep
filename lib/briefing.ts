@@ -13,6 +13,9 @@ export interface RouteSummary {
   surface: Surface;
   /** Heading of the longest sustained leg, used for head/tailwind maths. */
   outboundBearingDeg: number;
+  lat: number;
+  lng: number;
+  timezone: string;
 }
 
 export interface HourlyConditions {
@@ -25,6 +28,9 @@ export interface HourlyConditions {
   /** Bearing the wind blows *from*, as forecasts report it. */
   windFromDeg: number;
   precipChance: number;
+  humidityPct: number;
+  dewPointC: number;
+  uvIndex: number;
 }
 
 export interface RiderProfile {
@@ -54,9 +60,9 @@ export const SURFACE_LABELS: Record<Surface, string> = {
 };
 
 /**
- * Stands in for the route and forecast APIs. Every value the briefing shows is
- * either read from here or derived from it, so wiring up a real response means
- * replacing this object at the page level and nothing else.
+ * Seeds the briefing with the Winnats Pass Loop. Geometry and the rider
+ * profile stay here; the hourly series is replaced by a live Open-Meteo
+ * forecast as soon as the page loads.
  */
 export const defaultBriefing: Briefing = {
   route: {
@@ -68,6 +74,9 @@ export const defaultBriefing: Briefing = {
     movingHours: 3.4,
     surface: "road",
     outboundBearingDeg: 292,
+    lat: 53.3278,
+    lng: -1.7597,
+    timezone: "Europe/London",
   },
   hourly: [
     {
@@ -78,6 +87,9 @@ export const defaultBriefing: Briefing = {
       gustKph: 33,
       windFromDeg: 296,
       precipChance: 10,
+      humidityPct: 90,
+      dewPointC: 6.8,
+      uvIndex: 0,
     },
     {
       time: "07:00",
@@ -87,6 +99,9 @@ export const defaultBriefing: Briefing = {
       gustKph: 35,
       windFromDeg: 300,
       precipChance: 10,
+      humidityPct: 90,
+      dewPointC: 6.8,
+      uvIndex: 0,
     },
     {
       time: "08:00",
@@ -96,6 +111,9 @@ export const defaultBriefing: Briefing = {
       gustKph: 38,
       windFromDeg: 305,
       precipChance: 20,
+      humidityPct: 80,
+      dewPointC: 7.8,
+      uvIndex: 1.4,
     },
     {
       time: "09:00",
@@ -105,6 +123,9 @@ export const defaultBriefing: Briefing = {
       gustKph: 41,
       windFromDeg: 310,
       precipChance: 30,
+      humidityPct: 72,
+      dewPointC: 8.6,
+      uvIndex: 2.8,
     },
     {
       time: "10:00",
@@ -114,6 +135,9 @@ export const defaultBriefing: Briefing = {
       gustKph: 39,
       windFromDeg: 314,
       precipChance: 20,
+      humidityPct: 80,
+      dewPointC: 7.8,
+      uvIndex: 1.4,
     },
     {
       time: "11:00",
@@ -123,6 +147,9 @@ export const defaultBriefing: Briefing = {
       gustKph: 36,
       windFromDeg: 318,
       precipChance: 10,
+      humidityPct: 90,
+      dewPointC: 6.8,
+      uvIndex: 0,
     },
     {
       time: "12:00",
@@ -132,6 +159,9 @@ export const defaultBriefing: Briefing = {
       gustKph: 32,
       windFromDeg: 322,
       precipChance: 5,
+      humidityPct: 58,
+      dewPointC: 10.8,
+      uvIndex: 5.1,
     },
   ],
   rider: {

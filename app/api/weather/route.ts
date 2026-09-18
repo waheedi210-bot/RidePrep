@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { fetchOpenMeteoForecast, OpenMeteoError } from "@/lib/open-meteo";
+import { loadForecast, loadForecastAlongRoute } from "@/lib/forecast";
+import { OpenMeteoError } from "@/lib/open-meteo";
 import {
-  FORECAST_HOURS,
-  observeCurrent,
+  parseStartTime,
   parseWeatherQuery,
-  sliceHourlyFromStart,
   type QueryIssue,
-  type WeatherPayload,
 } from "@/lib/weather";
 
 export const dynamic = "force-dynamic";
@@ -49,48 +47,16 @@ export async function GET(request: Request) {
     );
   }
 
-  const { lat, lng, startTime } = parsed.query;
+  const { lat, lng, startTime, hours } = parsed.query;
 
   try {
-    const forecast = await fetchOpenMeteoForecast(lat, lng);
-    const current = observeCurrent(forecast.current);
-
-    if (!current) {
-      return jsonError(
-        502,
-        "UPSTREAM_ERROR",
-        "Open-Meteo omitted the current observation.",
-      );
-    }
-
-    const windowStart = startTime ?? new Date(current.time);
-    const sliced = sliceHourlyFromStart(
-      forecast.hourly,
-      windowStart,
-      FORECAST_HOURS,
-    );
-
-    if ("error" in sliced) {
-      return jsonError(400, "START_OUT_OF_RANGE", sliced.error, [
-        { param: "startTime", message: sliced.error },
-      ]);
-    }
-
-    const payload: WeatherPayload = {
-      location: {
-        lat: forecast.latitude,
-        lng: forecast.longitude,
-        elevationM: forecast.elevation,
-        timezone: forecast.timezone,
-      },
-      query: {
-        lat,
-        lng,
-        startTime: windowStart.toISOString(),
-      },
-      current,
-      hours: sliced.hours,
-    };
+    const windowStart = startTime ?? new Date();
+    const payload = await loadForecast({
+      lat,
+      lng,
+      startTime: windowStart,
+      hours,
+    });
 
     return NextResponse.json(payload, {
       headers: { "Cache-Control": CACHE_CONTROL },
@@ -98,6 +64,94 @@ export async function GET(request: Request) {
   } catch (error) {
     if (error instanceof OpenMeteoError) {
       return jsonError(error.status, error.code, error.message);
+    }
+
+    if (error instanceof Error && /startTime is after|No complete hourly/.test(error.message)) {
+      return jsonError(400, "START_OUT_OF_RANGE", error.message, [
+        { param: "startTime", message: error.message },
+      ]);
+    }
+
+    return jsonError(
+      502,
+      "UPSTREAM_ERROR",
+      "The weather lookup failed unexpectedly.",
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  let body: unknown;
+
+  try {
+    body = await request.json();
+  } catch {
+    return jsonError(400, "INVALID_QUERY", "JSON body is required.");
+  }
+
+  if (typeof body !== "object" || body === null) {
+    return jsonError(400, "INVALID_QUERY", "JSON body is required.");
+  }
+
+  const record = body as Record<string, unknown>;
+  const issues: QueryIssue[] = [];
+  const startTime = parseStartTime(
+    typeof record.startTime === "string" ? record.startTime : null,
+    issues,
+  );
+  const hours =
+    typeof record.hours === "number" && Number.isInteger(record.hours)
+      ? record.hours
+      : 4;
+  const rawSamples = record.samples;
+
+  if (!Array.isArray(rawSamples) || rawSamples.length === 0) {
+    issues.push({ param: "samples", message: "samples must be a non-empty array." });
+  }
+
+  if (issues.length > 0 || !startTime || !Array.isArray(rawSamples)) {
+    return jsonError(400, "INVALID_QUERY", "The weather query is invalid.", issues);
+  }
+
+  const samples = rawSamples.flatMap((sample) => {
+    if (typeof sample !== "object" || sample === null) {
+      return [];
+    }
+
+    const point = sample as Record<string, unknown>;
+    const lat = Number(point.lat);
+    const lng = Number(point.lng);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return [];
+    }
+
+    return [{ lat, lng }];
+  });
+
+  if (samples.length === 0) {
+    return jsonError(400, "INVALID_QUERY", "samples must include lat and lng.");
+  }
+
+  try {
+    const payload = await loadForecastAlongRoute({
+      samples,
+      startTime,
+      hours: Math.min(12, Math.max(1, hours)),
+    });
+
+    return NextResponse.json(payload, {
+      headers: { "Cache-Control": CACHE_CONTROL },
+    });
+  } catch (error) {
+    if (error instanceof OpenMeteoError) {
+      return jsonError(error.status, error.code, error.message);
+    }
+
+    if (error instanceof Error && /startTime is after|No complete hourly/.test(error.message)) {
+      return jsonError(400, "START_OUT_OF_RANGE", error.message, [
+        { param: "startTime", message: error.message },
+      ]);
     }
 
     return jsonError(

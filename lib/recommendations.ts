@@ -1,4 +1,4 @@
-import type { Briefing, Intensity, SweatRate } from "./briefing.ts";
+import type { Briefing, Intensity } from "./briefing.ts";
 import {
   calculateFueling,
   calculateTirePressure,
@@ -25,6 +25,7 @@ export interface ApparelAdvice {
   maxGustKph: number;
   /** Null when it never warms past the shedding threshold. */
   shedAtTime: string | null;
+  sunscreenHint: string | null;
 }
 
 export interface TyreAdvice {
@@ -69,12 +70,6 @@ const WATTS_BY_INTENSITY: Record<Intensity, number> = {
   endurance: 150,
   tempo: 210,
   threshold: 280,
-};
-
-const SODIUM_BY_SWEAT_RATE: Record<SweatRate, number> = {
-  low: 400,
-  moderate: 600,
-  high: 850,
 };
 
 function classifyWind(travelBearing: number, windFromDeg: number): WindRelation {
@@ -122,6 +117,7 @@ export function recommendApparel({ hourly, route }: Briefing): ApparelAdvice {
         ? "Packable wind vest in a jersey pocket"
         : "Leave the vest at home";
 
+  const maxUv = Math.max(...hourly.map((hour) => hour.uvIndex));
   const shedAtTime =
     hourly.find((hour) => hour.feelsLikeC >= SHED_THRESHOLD_C)?.time ?? null;
 
@@ -131,6 +127,10 @@ export function recommendApparel({ hourly, route }: Briefing): ApparelAdvice {
     maxWindKph,
     maxGustKph,
     shedAtTime,
+    sunscreenHint:
+      maxUv >= 6
+        ? `UV peaks at ${maxUv.toFixed(1)} — reapply SPF on the long exposed sections.`
+        : null,
     picks: [
       {
         slot: "Jersey",
@@ -211,24 +211,25 @@ export function recommendFueling({
 }: Briefing): FuelingAdvice {
   const averageTempC =
     hourly.reduce((total, hour) => total + hour.tempC, 0) / hourly.length;
+  const averageDew =
+    hourly.reduce((total, hour) => total + hour.dewPointC, 0) / hourly.length;
 
-  const { carbsPerHour, fluidMlPerHour } = calculateFueling({
+  const fueling = calculateFueling({
     durationHours: route.movingHours,
     temperatureC: averageTempC,
     targetWatts: WATTS_BY_INTENSITY[rider.intensity],
+    dewPointC: averageDew,
+    sweatRate: rider.sweatRate,
   });
 
-  const sodiumPerHourMg =
-    SODIUM_BY_SWEAT_RATE[rider.sweatRate] + (averageTempC > 20 ? 150 : 0);
-
-  const totalFluidMl = Math.round(fluidMlPerHour * route.movingHours);
+  const totalFluidMl = Math.round(fueling.fluidMlPerHour * route.movingHours);
   const bottles = Math.ceil(totalFluidMl / 500);
 
   return {
-    carbsPerHourG: carbsPerHour,
-    fluidPerHourMl: fluidMlPerHour,
-    sodiumPerHourMg,
-    totalCarbsG: Math.round(carbsPerHour * route.movingHours),
+    carbsPerHourG: fueling.carbsPerHour,
+    fluidPerHourMl: fueling.fluidMlPerHour,
+    sodiumPerHourMg: fueling.sodiumPerHourMg,
+    totalCarbsG: Math.round(fueling.carbsPerHour * route.movingHours),
     totalFluidMl,
     bottles,
     refills: Math.max(0, bottles - 2),

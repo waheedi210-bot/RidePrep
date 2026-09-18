@@ -7,18 +7,24 @@ export function FuelingPanel({
   durationHours,
   temperatureC,
   targetWatts,
+  giTolerance,
   onDurationHours,
   onTemperatureC,
   onTargetWatts,
+  onGiTolerance,
   fueling,
+  dewPointC,
 }: {
   durationHours: number;
   temperatureC: number;
   targetWatts: number;
+  giTolerance: number;
   onDurationHours: (value: number) => void;
   onTemperatureC: (value: number) => void;
   onTargetWatts: (value: number) => void;
+  onGiTolerance: (value: number) => void;
   fueling: FuelingResult;
+  dewPointC: number;
 }) {
   const totalCarbsG = Math.round(fueling.carbsPerHour * durationHours);
   const totalFluidMl = Math.round(fueling.fluidMlPerHour * durationHours);
@@ -57,8 +63,29 @@ export function FuelingPanel({
         />
       </div>
 
+      <label className="mt-4 flex flex-col gap-1.5">
+        <span className="flex items-center justify-between gap-3">
+          <span className="font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-muted">
+            GI tolerance
+          </span>
+          <span className="text-xs tabular-nums text-muted">
+            {Math.round(giTolerance * 100)}% of ACSM target
+          </span>
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={giTolerance}
+          onChange={(event) => onGiTolerance(Number(event.target.value))}
+          className="accent-accent"
+          aria-label="GI tolerance"
+        />
+      </label>
+
       <p className="mt-4 text-sm text-muted">
-        {`${formatDuration(durationHours)} at ${formatNumber(targetWatts)} W, ${formatNumber(temperatureC, 1)}° air temp.`}
+        {`${formatDuration(durationHours)} at ${formatNumber(targetWatts)} W, ${formatNumber(temperatureC, 1)}° air / ${formatNumber(dewPointC, 1)}° dew point.`}
       </p>
 
       <div className="mt-5 grid grid-cols-2 gap-4">
@@ -80,6 +107,18 @@ export function FuelingPanel({
 
       <dl className="mt-5 flex flex-col gap-3 border-t border-border-subtle pt-4">
         <div className="flex items-center justify-between gap-4">
+          <dt className="text-sm text-muted">Sodium</dt>
+          <dd className="text-sm font-semibold tabular-nums">
+            {formatNumber(fueling.sodiumPerHourMg)} mg/hr
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <dt className="text-sm text-muted">Work</dt>
+          <dd className="text-sm font-semibold tabular-nums">
+            {formatNumber(fueling.energyKj)} kJ
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-4">
           <dt className="text-sm text-muted">Bottles</dt>
           <dd className="text-sm font-semibold tabular-nums">
             {bottles} × 500 ml
@@ -94,9 +133,11 @@ export function FuelingPanel({
       </dl>
 
       <p className="mt-5 rounded-xl border border-border-subtle bg-surface-raised/60 px-4 py-3 text-xs leading-relaxed text-muted">
-        Start eating in the first 30 minutes and keep to{" "}
-        {formatNumber(Math.round(fueling.carbsPerHour / 3))} g every 20 minutes
-        — catching up after the climbs never works.
+        ACSM/ISSN: 30–90 g carbohydrate per hour on rides over 90 minutes. Start
+        in the first 30 minutes and keep to{" "}
+        {formatNumber(Math.round(fueling.carbsPerHour / 3))} g every 20 minutes —
+        catching up after the climbs never works. Turn GI tolerance down if your
+        gut is the limiter.
       </p>
     </div>
   );

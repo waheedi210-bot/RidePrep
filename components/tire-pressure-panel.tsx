@@ -1,16 +1,20 @@
 import { Metric } from "@/components/metric";
 import { NumberField } from "@/components/number-field";
-import type { TirePressureResult } from "@/lib/calculations";
+import type { TirePressureResult, TireSetup } from "@/lib/calculations";
 import { formatNumber, psiToBar } from "@/lib/units";
 
 export function TirePressurePanel({
   riderWeightKg,
   bikeWeightKg,
   tireWidthMm,
+  rimInnerWidthMm,
+  setup,
   isGravel,
   onRiderWeightKg,
   onBikeWeightKg,
   onTireWidthMm,
+  onRimInnerWidthMm,
+  onSetup,
   onIsGravel,
   pressure,
   wetHint,
@@ -18,10 +22,14 @@ export function TirePressurePanel({
   riderWeightKg: number;
   bikeWeightKg: number;
   tireWidthMm: number;
+  rimInnerWidthMm: number;
+  setup: TireSetup;
   isGravel: boolean;
   onRiderWeightKg: (value: number) => void;
   onBikeWeightKg: (value: number) => void;
   onTireWidthMm: (value: number) => void;
+  onRimInnerWidthMm: (value: number) => void;
+  onSetup: (value: TireSetup) => void;
   onIsGravel: (value: boolean) => void;
   pressure: TirePressureResult;
   wetHint: string | null;
@@ -58,6 +66,42 @@ export function TirePressurePanel({
           max={64}
           step={1}
         />
+        <NumberField
+          label="Rim inner"
+          value={rimInnerWidthMm}
+          onChange={onRimInnerWidthMm}
+          unit="mm"
+          min={15}
+          max={35}
+          step={0.5}
+        />
+        <fieldset className="flex flex-col gap-1.5">
+          <legend className="font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-muted">
+            Setup
+          </legend>
+          <div className="grid grid-cols-2 gap-1 rounded-xl border border-border-subtle bg-background p-1">
+            {(
+              [
+                ["tubeless", "Tubeless"],
+                ["clincher", "Tube"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={setup === value}
+                onClick={() => onSetup(value)}
+                className={`rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                  setup === value
+                    ? "bg-accent text-background"
+                    : "text-muted hover:text-foreground"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
         <fieldset className="flex flex-col gap-1.5">
           <legend className="font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-muted">
             Surface
@@ -108,7 +152,7 @@ export function TirePressurePanel({
         <p className="mt-4 text-xs leading-relaxed text-muted">
           Silca / SRAM equal-drop model for {formatNumber(systemKg, 1)} kg of
           rider and bike on {tireWidthMm} mm {isGravel ? "gravel" : "road"}{" "}
-          tyres.
+          {setup} tyres with a {formatNumber(rimInnerWidthMm, 1)} mm inner rim.
         </p>
 
         {wetHint ? (

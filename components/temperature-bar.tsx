@@ -29,10 +29,20 @@ function temperatureColour(tempC: number): string {
   return `rgb(${mixed.join(" ")})`;
 }
 
-export function TemperatureBar({ hourly }: { hourly: HourlyConditions[] }) {
+export function TemperatureBar({
+  hourly,
+  source,
+}: {
+  hourly: HourlyConditions[];
+  source?: string;
+}) {
+  if (hourly.length === 0) {
+    return null;
+  }
   const gradient = hourly
     .map((hour, index) => {
-      const position = (index / (hourly.length - 1)) * 100;
+      const position =
+        hourly.length === 1 ? 0 : (index / (hourly.length - 1)) * 100;
 
       return `${temperatureColour(hour.tempC)} ${position.toFixed(1)}%`;
     })
@@ -64,6 +74,12 @@ export function TemperatureBar({ hourly }: { hourly: HourlyConditions[] }) {
           {coldest.tempC}° → {warmest.tempC}°
         </p>
       </div>
+
+      {source ? (
+        <p className="mt-2 font-mono text-[0.625rem] uppercase tracking-[0.14em] text-muted">
+          {source}
+        </p>
+      ) : null}
 
       <div
         role="img"

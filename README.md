@@ -58,10 +58,16 @@ current display mode, service worker state and network status, and offers an
 2. **Temperature bar** — a CSS gradient interpolated through a cold-to-hot
    colour scale from each hour's air temperature, with the hourly values below
    it and the largest wind-chill delta called out.
-3. **Four tabs** — apparel layering, tyre pressure, wind, and fuelling
-   targets. Full labels at `sm` and up, short ones below that so four tabs fit
-   a 320 px screen. Arrow keys, Home and End move between them, with a roving
+3. **Four tabs** — apparel layering, tyre pressure, wind, and fuelling.
+   Full labels at `sm` and up, short ones below that so four tabs fit a 320 px
+   screen. Arrow keys, Home and End move between them, with a roving
    `tabindex` and the usual `role="tablist"` wiring.
+
+Above the route card, **Route in** takes a GPX upload or a Ride with GPS
+link, plus a roll-out date and time. The temperature bar then loads a live
+[Open-Meteo](https://open-meteo.com) forecast for that start. Strava route
+URLs cannot be fetched without a login — export GPX from Strava and drop the
+file instead.
 
 The route header card has a **Share Briefing to Group Chat** button. It runs
 `toPng` from `html-to-image` (`cacheBust: true`, `pixelRatio: 2`) against a
@@ -72,9 +78,10 @@ files get the image (or the page URL) on the clipboard and a toast:
 
 ### Where the numbers come from
 
-`lib/briefing.ts` holds the types and one `defaultBriefing` object — route,
-seven hours of forecast, and a rider profile. It seeds the page and stands in
-for the route and forecast APIs:
+`lib/briefing.ts` holds the types and one `defaultBriefing` object — the
+Winnats Pass Loop geometry and rider profile. The hourly series is replaced
+on the client by `GET /api/weather` (or `POST` with sampled track points when
+the GPX spans more than 25 km).
 
 ```ts
 const briefing = defaultBriefing;
@@ -126,19 +133,19 @@ calculation the briefing can consume later.
 | `lat`        | yes      | WGS84 latitude, −90 to 90                                             |
 | `lng`        | yes      | WGS84 longitude, −180 to 180                                          |
 | `startTime`  | no       | ISO 8601 instant. Timezone-naive values are treated as UTC. Defaults to now. |
+| `hours`      | no       | 1–12 hourly slots. Defaults to 4.                                     |
 
 ```bash
 curl "http://localhost:3000/api/weather?lat=53.35&lng=-1.82&startTime=2026-09-18T06:30:00Z"
 ```
 
 The handler asks Open-Meteo for `temperature_2m`, `relative_humidity_2m`,
-`apparent_temperature`, `wind_speed_10m`, `wind_direction_10m` and `uv_index`
-on both the `current` block and the hourly series (UTC, km/h, °C). It then
-returns:
+`apparent_temperature`, `dew_point_2m`, `precipitation_probability`,
+`wind_speed_10m`, `wind_gusts_10m`, `wind_direction_10m` and `uv_index`.
 
 - `current` — the observation Open-Meteo stamped "now"
-- `hours` — four consecutive hourly slots beginning at the hour that contains
-  `startTime` (so a 06:30 roll-out includes 06:00)
+- `hours` — hourly slots beginning at the hour that contains `startTime` (so a
+  06:30 roll-out includes 06:00). Pass `hours` to cover the ride.
 
 Each observation carries Open-Meteo's Steadman `apparentTemperatureC` plus
 `windChillC` from the NWS metric formula (valid at ≤ 10 °C and ≥ 4.8 km/h).

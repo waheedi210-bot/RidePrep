@@ -5,6 +5,15 @@ import {
 } from "./wind-chill.ts";
 
 export const FORECAST_HOURS = 4;
+export const MIN_FORECAST_HOURS = 4;
+export const MAX_FORECAST_HOURS = 12;
+
+export function hoursForRide(movingHours: number): number {
+  return Math.min(
+    MAX_FORECAST_HOURS,
+    Math.max(MIN_FORECAST_HOURS, Math.ceil(movingHours) + 1),
+  );
+}
 
 export interface QueryIssue {
   param: string;
@@ -14,8 +23,9 @@ export interface QueryIssue {
 export interface WeatherQuery {
   lat: number;
   lng: number;
-  /** UTC instant the 4-hour window starts from. `null` means "now". */
+  /** UTC instant the hourly window starts from. `null` means "now". */
   startTime: Date | null;
+  hours: number;
 }
 
 export interface WeatherObservation {
@@ -38,8 +48,11 @@ export interface WeatherObservation {
   windChillDeltaC: number;
   windChillApplicable: boolean;
   windSpeedKph: number;
+  windGustKph: number;
   windDirectionDeg: number;
   uvIndex: number;
+  precipChance: number;
+  dewPointC: number;
 }
 
 export interface WeatherPayload {
@@ -55,7 +68,7 @@ export interface WeatherPayload {
     startTime: string;
   };
   current: WeatherObservation;
-  /** Four consecutive hourly slots beginning at the hour that contains startTime. */
+  /** Hourly slots beginning at the hour that contains startTime. */
   hours: WeatherObservation[];
 }
 
@@ -65,8 +78,11 @@ export interface OpenMeteoCurrent {
   relative_humidity_2m: number | null;
   apparent_temperature: number | null;
   wind_speed_10m: number | null;
+  wind_gusts_10m?: number | null;
   wind_direction_10m: number | null;
   uv_index: number | null;
+  dew_point_2m?: number | null;
+  precipitation_probability?: number | null;
 }
 
 export interface OpenMeteoHourly {
@@ -75,8 +91,11 @@ export interface OpenMeteoHourly {
   relative_humidity_2m: Array<number | null>;
   apparent_temperature: Array<number | null>;
   wind_speed_10m: Array<number | null>;
+  wind_gusts_10m?: Array<number | null>;
   wind_direction_10m: Array<number | null>;
   uv_index: Array<number | null>;
+  dew_point_2m?: Array<number | null>;
+  precipitation_probability?: Array<number | null>;
 }
 
 export interface OpenMeteoForecast {
@@ -97,12 +116,13 @@ export function parseWeatherQuery(searchParams: URLSearchParams):
   const lat = parseCoordinate(searchParams.get("lat"), "lat", -90, 90, issues);
   const lng = parseCoordinate(searchParams.get("lng"), "lng", -180, 180, issues);
   const startTime = parseStartTime(searchParams.get("startTime"), issues);
+  const hours = parseHours(searchParams.get("hours"), issues);
 
   if (issues.length > 0 || lat === null || lng === null) {
     return { issues };
   }
 
-  return { query: { lat, lng, startTime } };
+  return { query: { lat, lng, startTime, hours } };
 }
 
 function parseCoordinate(
@@ -163,6 +183,45 @@ export function parseStartTime(
   return instant;
 }
 
+export function parseHours(
+  raw: string | null,
+  issues: QueryIssue[] = [],
+): number {
+  if (raw === null || raw.trim() === "") {
+    return FORECAST_HOURS;
+  }
+
+  const value = Number(raw);
+
+  if (!Number.isInteger(value)) {
+    issues.push({
+      param: "hours",
+      message: `hours must be an integer between ${MIN_FORECAST_HOURS} and ${MAX_FORECAST_HOURS}.`,
+    });
+    return FORECAST_HOURS;
+  }
+
+  if (value < 1 || value > MAX_FORECAST_HOURS) {
+    issues.push({
+      param: "hours",
+      message: `hours must be between 1 and ${MAX_FORECAST_HOURS}.`,
+    });
+    return FORECAST_HOURS;
+  }
+
+  return value;
+}
+
+/** Magnus approximation used when Open-Meteo omits dew point. */
+export function dewPointFromHumidity(temperatureC: number, humidityPct: number): number {
+  const a = 17.62;
+  const b = 243.12;
+  const rh = Math.min(100, Math.max(1, humidityPct)) / 100;
+  const gamma = Math.log(rh) + (a * temperatureC) / (b + temperatureC);
+
+  return (b * gamma) / (a - gamma);
+}
+
 export function roundTo(value: number, decimals: number): number {
   const factor = 10 ** decimals;
 
@@ -188,8 +247,11 @@ export function observe(input: {
   humidityPct: number;
   apparentTemperatureC: number;
   windSpeedKph: number;
+  windGustKph?: number;
   windDirectionDeg: number;
   uvIndex: number;
+  precipChance?: number;
+  dewPointC?: number;
 }): WeatherObservation {
   const chill = windChillC(input.temperatureC, input.windSpeedKph);
   const apparent = apparentWindChillC(
@@ -197,6 +259,9 @@ export function observe(input: {
     input.windSpeedKph,
     input.apparentTemperatureC,
   );
+  const dewPointC =
+    input.dewPointC ?? dewPointFromHumidity(input.temperatureC, input.humidityPct);
+  const windGustKph = Math.max(input.windGustKph ?? input.windSpeedKph, input.windSpeedKph);
 
   return {
     time: toIsoUtc(input.time),
@@ -211,8 +276,11 @@ export function observe(input: {
       input.windSpeedKph,
     ),
     windSpeedKph: roundTo(input.windSpeedKph, 1),
+    windGustKph: roundTo(windGustKph, 1),
     windDirectionDeg: Math.round(input.windDirectionDeg),
     uvIndex: roundTo(input.uvIndex, 1),
+    precipChance: Math.round(Math.min(100, Math.max(0, input.precipChance ?? 0))),
+    dewPointC: roundTo(dewPointC, 1),
   };
 }
 
@@ -225,8 +293,11 @@ export function observeCurrent(
     humidityPct: current.relative_humidity_2m,
     apparentTemperatureC: current.apparent_temperature,
     windSpeedKph: current.wind_speed_10m,
+    windGustKph: current.wind_gusts_10m,
     windDirectionDeg: current.wind_direction_10m,
     uvIndex: current.uv_index,
+    precipChance: current.precipitation_probability,
+    dewPointC: current.dew_point_2m,
   });
 }
 
@@ -240,8 +311,11 @@ export function observeHourly(
     humidityPct: hourly.relative_humidity_2m[index],
     apparentTemperatureC: hourly.apparent_temperature[index],
     windSpeedKph: hourly.wind_speed_10m[index],
+    windGustKph: hourly.wind_gusts_10m?.[index],
     windDirectionDeg: hourly.wind_direction_10m[index],
     uvIndex: hourly.uv_index[index],
+    precipChance: hourly.precipitation_probability?.[index],
+    dewPointC: hourly.dew_point_2m?.[index],
   });
 }
 
@@ -251,8 +325,11 @@ function observeNullable(input: {
   humidityPct: number | null | undefined;
   apparentTemperatureC: number | null | undefined;
   windSpeedKph: number | null | undefined;
+  windGustKph?: number | null;
   windDirectionDeg: number | null | undefined;
   uvIndex: number | null | undefined;
+  precipChance?: number | null;
+  dewPointC?: number | null;
 }): WeatherObservation | null {
   if (
     input.time === undefined ||
@@ -260,8 +337,7 @@ function observeNullable(input: {
     input.humidityPct == null ||
     input.apparentTemperatureC == null ||
     input.windSpeedKph == null ||
-    input.windDirectionDeg == null ||
-    input.uvIndex == null
+    input.windDirectionDeg == null
   ) {
     return null;
   }
@@ -272,8 +348,11 @@ function observeNullable(input: {
     humidityPct: input.humidityPct,
     apparentTemperatureC: input.apparentTemperatureC,
     windSpeedKph: input.windSpeedKph,
+    windGustKph: input.windGustKph ?? undefined,
     windDirectionDeg: input.windDirectionDeg,
-    uvIndex: input.uvIndex,
+    uvIndex: input.uvIndex ?? 0,
+    precipChance: input.precipChance ?? undefined,
+    dewPointC: input.dewPointC ?? undefined,
   });
 }
 

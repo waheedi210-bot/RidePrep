@@ -2,13 +2,20 @@ import { isOpenMeteoForecast, type OpenMeteoForecast } from "./weather.ts";
 
 export const OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast";
 
-const VARIABLES = [
+const CURRENT_VARIABLES = [
   "temperature_2m",
   "relative_humidity_2m",
   "apparent_temperature",
+  "dew_point_2m",
   "wind_speed_10m",
+  "wind_gusts_10m",
   "wind_direction_10m",
   "uv_index",
+] as const;
+
+const HOURLY_VARIABLES = [
+  ...CURRENT_VARIABLES,
+  "precipitation_probability",
 ] as const;
 
 const FETCH_TIMEOUT_MS = 8_000;
@@ -35,7 +42,6 @@ export async function fetchOpenMeteoForecast(
   lng: number,
 ): Promise<OpenMeteoForecast> {
   const url = new URL(OPEN_METEO_URL);
-  const fields = VARIABLES.join(",");
 
   url.searchParams.set("latitude", lat.toFixed(4));
   url.searchParams.set("longitude", lng.toFixed(4));
@@ -44,8 +50,8 @@ export async function fetchOpenMeteoForecast(
   url.searchParams.set("temperature_unit", "celsius");
   url.searchParams.set("wind_speed_unit", "kmh");
   url.searchParams.set("forecast_days", "7");
-  url.searchParams.set("current", fields);
-  url.searchParams.set("hourly", fields);
+  url.searchParams.set("current", CURRENT_VARIABLES.join(","));
+  url.searchParams.set("hourly", HOURLY_VARIABLES.join(","));
 
   let response: Response;
 

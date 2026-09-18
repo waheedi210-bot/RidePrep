@@ -9,11 +9,25 @@ import { BriefingTabs, type BriefingTab } from "@/components/briefing-tabs";
 import { FuelingPanel } from "@/components/fueling-panel";
 import { InstallPanel } from "@/components/install-panel";
 import { RouteHeader } from "@/components/route-header";
+import { RouteInPanel } from "@/components/route-in-panel";
 import { TemperatureBar } from "@/components/temperature-bar";
 import { TirePressurePanel } from "@/components/tire-pressure-panel";
 import { WindPanel } from "@/components/wind-panel";
-import { defaultBriefing } from "@/lib/briefing";
-import { calculateFueling, calculateTirePressure } from "@/lib/calculations";
+import { defaultBriefing, type RouteSummary } from "@/lib/briefing";
+import {
+  calculateFueling,
+  calculateTirePressure,
+  type TireSetup,
+} from "@/lib/calculations";
+import {
+  fromZonedFields,
+  toZonedDateInput,
+  tomorrowAt,
+} from "@/lib/datetime";
+import { observationsToHourly } from "@/lib/forecast";
+import type { GeoPoint } from "@/lib/geo";
+import { parseGpx } from "@/lib/gpx";
+import { requestBriefingWeather } from "@/lib/live-weather";
 import { describeWind, recommendApparel } from "@/lib/recommendations";
 import {
   SHARE_TOAST,
@@ -26,6 +40,10 @@ const TOAST_MS = 2800;
 const BRIEFING_SURFACE = "#16203a";
 
 function averageTempC(temps: number[]): number {
+  if (temps.length === 0) {
+    return 15;
+  }
+
   return temps.reduce((total, temp) => total + temp, 0) / temps.length;
 }
 
@@ -131,20 +149,116 @@ function ShareBriefingButton({
   );
 }
 
-export default function Home() {
-  const briefing = defaultBriefing;
-  const forecastTempC = averageTempC(briefing.hourly.map((hour) => hour.tempC));
+function applyImportedRoute(
+  current: RouteSummary,
+  imported: {
+    name: string;
+    lat: number;
+    lng: number;
+    distanceKm: number;
+    elevationGainM: number;
+    movingHours: number;
+    outboundBearingDeg: number;
+  },
+  startTime: string,
+): RouteSummary {
+  return {
+    ...current,
+    name: imported.name,
+    region: "Imported route",
+    startTime,
+    distanceKm: imported.distanceKm,
+    elevationGainM: imported.elevationGainM,
+    movingHours: imported.movingHours,
+    outboundBearingDeg: imported.outboundBearingDeg,
+    lat: imported.lat,
+    lng: imported.lng,
+  };
+}
 
-  const [riderWeightKg, setRiderWeightKg] = useState(briefing.rider.weightKg);
-  const [bikeWeightKg, setBikeWeightKg] = useState(briefing.rider.bikeWeightKg);
-  const [tireWidthMm, setTireWidthMm] = useState(briefing.rider.tyreWidthMm);
-  const [isGravel, setIsGravel] = useState(briefing.route.surface === "gravel");
-  const [durationHours, setDurationHours] = useState(briefing.route.movingHours);
+export default function Home() {
+  const [route, setRoute] = useState(defaultBriefing.route);
+  const [hourly, setHourly] = useState(defaultBriefing.hourly);
+  const [track, setTrack] = useState<GeoPoint[] | undefined>(undefined);
+  const [dateYmd, setDateYmd] = useState(() =>
+    toZonedDateInput(
+      tomorrowAt(defaultBriefing.route.startTime, defaultBriefing.route.timezone),
+      defaultBriefing.route.timezone,
+    ),
+  );
+  const [timeHm, setTimeHm] = useState(defaultBriefing.route.startTime);
+  const [forecastSource, setForecastSource] = useState("Sample forecast");
+  const [routeMessage, setRouteMessage] = useState<string | null>(
+    "Live Open-Meteo loads for tomorrow’s roll-out.",
+  );
+  const [busy, setBusy] = useState(false);
+
+  const [riderWeightKg, setRiderWeightKg] = useState(defaultBriefing.rider.weightKg);
+  const [bikeWeightKg, setBikeWeightKg] = useState(defaultBriefing.rider.bikeWeightKg);
+  const [tireWidthMm, setTireWidthMm] = useState(defaultBriefing.rider.tyreWidthMm);
+  const [rimInnerWidthMm, setRimInnerWidthMm] = useState(21);
+  const [setup, setSetup] = useState<TireSetup>("tubeless");
+  const [isGravel, setIsGravel] = useState(defaultBriefing.route.surface === "gravel");
+  const [durationHours, setDurationHours] = useState(defaultBriefing.route.movingHours);
   const [temperatureC, setTemperatureC] = useState(
-    Math.round(forecastTempC * 10) / 10,
+    Math.round(averageTempC(defaultBriefing.hourly.map((hour) => hour.tempC)) * 10) / 10,
   );
   const [targetWatts, setTargetWatts] = useState(TEMPO_WATTS);
+  const [giTolerance, setGiTolerance] = useState(1);
   const briefingRef = useRef<HTMLDivElement>(null);
+
+  const startInstant = useMemo(
+    () => fromZonedFields(dateYmd, timeHm, route.timezone),
+    [dateYmd, timeHm, route.timezone],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function load() {
+      if (Number.isNaN(startInstant.getTime())) {
+        return;
+      }
+
+      try {
+        const payload = await requestBriefingWeather({
+          lat: route.lat,
+          lng: route.lng,
+          startTime: startInstant,
+          movingHours: route.movingHours,
+          points: track,
+          signal: controller.signal,
+        });
+        const nextHourly = observationsToHourly(payload.hours, route.timezone);
+
+        if (!controller.signal.aborted && nextHourly.length > 0) {
+          setHourly(nextHourly);
+          setTemperatureC(
+            Math.round(averageTempC(nextHourly.map((hour) => hour.tempC)) * 10) / 10,
+          );
+          setForecastSource("Live Open-Meteo");
+        }
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setForecastSource("Sample forecast (live lookup failed)");
+        setRouteMessage(
+          error instanceof Error ? error.message : "Could not load the forecast.",
+        );
+      }
+    }
+
+    void load();
+
+    return () => controller.abort();
+  }, [route.lat, route.lng, route.movingHours, route.timezone, startInstant, track]);
+
+  const dewPointC = useMemo(
+    () => averageTempC(hourly.map((hour) => hour.dewPointC)),
+    [hourly],
+  );
 
   const pressure = useMemo(
     () =>
@@ -153,8 +267,10 @@ export default function Home() {
         bikeWeightKg,
         tireWidthMm,
         isGravel,
+        rimInnerWidthMm,
+        setup,
       }),
-    [riderWeightKg, bikeWeightKg, tireWidthMm, isGravel],
+    [riderWeightKg, bikeWeightKg, tireWidthMm, isGravel, rimInnerWidthMm, setup],
   );
 
   const fueling = useMemo(
@@ -163,17 +279,112 @@ export default function Home() {
         durationHours,
         temperatureC,
         targetWatts,
+        dewPointC,
+        giTolerance,
+        sweatRate: defaultBriefing.rider.sweatRate,
       }),
-    [durationHours, temperatureC, targetWatts],
+    [durationHours, temperatureC, targetWatts, dewPointC, giTolerance],
   );
 
-  const wettestHour = briefing.hourly.reduce((wettest, hour) =>
+  const briefing = useMemo(
+    () => ({
+      route: {
+        ...route,
+        startTime: timeHm,
+        surface: isGravel ? ("gravel" as const) : ("road" as const),
+      },
+      hourly,
+      rider: defaultBriefing.rider,
+    }),
+    [route, hourly, isGravel, timeHm],
+  );
+
+  const wettestHour = hourly.reduce((wettest, hour) =>
     hour.precipChance > wettest.precipChance ? hour : wettest,
   );
   const wetHint =
-    wettestHour.precipChance >= 30
+    wettestHour && wettestHour.precipChance >= 30
       ? `${wettestHour.precipChance}% chance of rain at ${wettestHour.time} — take 4 psi out of each tyre for grip on the descents.`
       : null;
+
+  const onGpxFile = async (file: File) => {
+    setBusy(true);
+    setRouteMessage(null);
+
+    try {
+      const xml = await file.text();
+      const parsed = parseGpx(xml, file.name.replace(/\.gpx$/i, ""));
+      setTrack(parsed.points);
+      setDurationHours(parsed.movingHours);
+      setIsGravel(/gravel/i.test(parsed.name));
+      setRoute((current) => applyImportedRoute(current, parsed, timeHm));
+      setRouteMessage(`Loaded ${parsed.name} from GPX.`);
+    } catch (error) {
+      setRouteMessage(
+        error instanceof Error ? error.message : "Could not parse that GPX file.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onRouteUrl = async (url: string) => {
+    setBusy(true);
+    setRouteMessage(null);
+
+    try {
+      const response = await fetch(`/api/route?url=${encodeURIComponent(url)}`, {
+        headers: { Accept: "application/json" },
+      });
+      const body = (await response.json()) as
+        | {
+            name: string;
+            lat: number;
+            lng: number;
+            distanceKm: number;
+            elevationGainM: number;
+            movingHours: number;
+            outboundBearingDeg: number;
+            points: GeoPoint[];
+          }
+        | { error?: { message?: string } };
+
+      if (!response.ok || !("points" in body)) {
+        const message =
+          "error" in body && body.error?.message
+            ? body.error.message
+            : "Could not import that route.";
+        throw new Error(message);
+      }
+
+      setTrack(body.points);
+      setDurationHours(body.movingHours);
+      setRoute((current) => applyImportedRoute(current, body, timeHm));
+      setRouteMessage(`Loaded ${body.name} from Ride with GPS.`);
+    } catch (error) {
+      setRouteMessage(
+        error instanceof Error ? error.message : "Could not import that route.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onReset = () => {
+    setTrack(undefined);
+    setRoute(defaultBriefing.route);
+    setHourly(defaultBriefing.hourly);
+    setDurationHours(defaultBriefing.route.movingHours);
+    setIsGravel(false);
+    setTimeHm(defaultBriefing.route.startTime);
+    setDateYmd(
+      toZonedDateInput(
+        tomorrowAt(defaultBriefing.route.startTime, defaultBriefing.route.timezone),
+        defaultBriefing.route.timezone,
+      ),
+    );
+    setRouteMessage("Back to the Winnats Pass sample route.");
+  };
 
   const tabs: BriefingTab[] = [
     {
@@ -191,10 +402,14 @@ export default function Home() {
           riderWeightKg={riderWeightKg}
           bikeWeightKg={bikeWeightKg}
           tireWidthMm={tireWidthMm}
+          rimInnerWidthMm={rimInnerWidthMm}
+          setup={setup}
           isGravel={isGravel}
           onRiderWeightKg={setRiderWeightKg}
           onBikeWeightKg={setBikeWeightKg}
           onTireWidthMm={setTireWidthMm}
+          onRimInnerWidthMm={setRimInnerWidthMm}
+          onSetup={setSetup}
           onIsGravel={setIsGravel}
           pressure={pressure}
           wetHint={wetHint}
@@ -216,10 +431,13 @@ export default function Home() {
           durationHours={durationHours}
           temperatureC={temperatureC}
           targetWatts={targetWatts}
+          giTolerance={giTolerance}
           onDurationHours={setDurationHours}
           onTemperatureC={setTemperatureC}
           onTargetWatts={setTargetWatts}
+          onGiTolerance={setGiTolerance}
           fueling={fueling}
+          dewPointC={Math.round(dewPointC * 10) / 10}
         />
       ),
     },
@@ -239,6 +457,19 @@ export default function Home() {
         <p className="text-sm font-semibold tracking-tight">RidePrep</p>
       </div>
 
+      <RouteInPanel
+        route={route}
+        dateYmd={dateYmd}
+        timeHm={timeHm}
+        onDateYmd={setDateYmd}
+        onTimeHm={setTimeHm}
+        onGpxFile={(file) => void onGpxFile(file)}
+        onRouteUrl={(url) => void onRouteUrl(url)}
+        onReset={onReset}
+        busy={busy}
+        message={routeMessage}
+      />
+
       <RouteHeader route={briefing.route} captureRef={briefingRef}>
         <ShareBriefingButton
           targetRef={briefingRef}
@@ -246,16 +477,14 @@ export default function Home() {
           text={`${briefing.route.name} · ${briefing.route.distanceKm} km · ${briefing.route.elevationGainM} m`}
         />
       </RouteHeader>
-      <TemperatureBar hourly={briefing.hourly} />
+      <TemperatureBar hourly={hourly} source={forecastSource} />
       <BriefingTabs tabs={tabs} />
       <InstallPanel />
 
       <footer className="pt-2 text-xs leading-relaxed text-muted">
-        Tire pressure and fuelling numbers come from{" "}
-        <code className="font-mono text-foreground">lib/calculations.ts</code>{" "}
-        as you edit the inputs. The route and forecast still come from{" "}
-        <code className="font-mono text-foreground">lib/briefing.ts</code> until
-        the weather API is wired in.
+        Forecast is live Open-Meteo along the route. Tire pressure uses Silca /
+        SRAM plus rim and tubeless setup. Fueling follows ACSM/ISSN 30–90 g/hr
+        with dew-point sweat and a GI-tolerance slider.
       </footer>
     </main>
   );
