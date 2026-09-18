@@ -1,6 +1,6 @@
 import { WindCompass } from "@/components/wind-compass";
 import type { WindAdvice, WindRelation } from "@/lib/recommendations";
-import { bearingToCompass } from "@/lib/units";
+import { bearingToCompass, formatMph } from "@/lib/units";
 
 const RELATION_LABELS: Record<WindRelation, string> = {
   headwind: "Headwind",
@@ -48,7 +48,8 @@ export function WindPanel({ wind }: { wind: WindAdvice }) {
         <span className="font-semibold text-foreground">
           {wind.fromLabel} {Math.round(wind.fromDeg)}°
         </span>
-        , {wind.averageKph} km/h with gusts to {wind.maxGustKph} km/h.
+        , {formatMph(wind.averageKph)} with gusts to{" "}
+        {formatMph(wind.maxGustKph)}.
       </p>
 
       <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">

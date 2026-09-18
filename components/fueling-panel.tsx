@@ -1,7 +1,18 @@
 import { Metric } from "@/components/metric";
 import { NumberField } from "@/components/number-field";
 import type { FuelingResult } from "@/lib/calculations";
-import { formatDuration, formatNumber } from "@/lib/units";
+import {
+  celsiusToFahrenheit,
+  fahrenheitToCelsius,
+  formatDuration,
+  formatNumber,
+  formatTempF,
+  kjToKcal,
+  mlToFlOz,
+  roundTo,
+} from "@/lib/units";
+
+const BOTTLE_ML = 500;
 
 export function FuelingPanel({
   durationHours,
@@ -28,8 +39,11 @@ export function FuelingPanel({
 }) {
   const totalCarbsG = Math.round(fueling.carbsPerHour * durationHours);
   const totalFluidMl = Math.round(fueling.fluidMlPerHour * durationHours);
-  const bottles = Math.max(1, Math.ceil(totalFluidMl / 500));
+  const bottles = Math.max(1, Math.ceil(totalFluidMl / BOTTLE_ML));
   const refills = Math.max(0, bottles - 2);
+  const bottleOz = Math.round(mlToFlOz(BOTTLE_ML));
+  const fluidOzPerHour = mlToFlOz(fueling.fluidMlPerHour);
+  const totalFluidOz = mlToFlOz(totalFluidMl);
 
   return (
     <div>
@@ -45,12 +59,14 @@ export function FuelingPanel({
         />
         <NumberField
           label="Temperature"
-          value={temperatureC}
-          onChange={onTemperatureC}
-          unit="°C"
-          min={-10}
-          max={45}
-          step={0.5}
+          value={roundTo(celsiusToFahrenheit(temperatureC), 1)}
+          onChange={(fahrenheit) =>
+            onTemperatureC(roundTo(fahrenheitToCelsius(fahrenheit), 0.1))
+          }
+          unit="°F"
+          min={14}
+          max={113}
+          step={1}
         />
         <NumberField
           label="Target power"
@@ -85,7 +101,7 @@ export function FuelingPanel({
       </label>
 
       <p className="mt-4 text-sm text-muted">
-        {`${formatDuration(durationHours)} at ${formatNumber(targetWatts)} W, ${formatNumber(temperatureC, 1)}° air / ${formatNumber(dewPointC, 1)}° dew point.`}
+        {`${formatDuration(durationHours)} at ${formatNumber(targetWatts)} W, ${formatTempF(temperatureC, 1)} air / ${formatTempF(dewPointC, 1)} dew point.`}
       </p>
 
       <div className="mt-5 grid grid-cols-2 gap-4">
@@ -98,9 +114,9 @@ export function FuelingPanel({
         />
         <Metric
           label="Fluid"
-          value={formatNumber(fueling.fluidMlPerHour)}
-          unit="ml/hr"
-          detail={`${formatNumber(totalFluidMl / 1000, 1)} L over the ride`}
+          value={formatNumber(fluidOzPerHour)}
+          unit="oz/hr"
+          detail={`${formatNumber(totalFluidOz, 1)} oz over the ride`}
           tone="accent"
         />
       </div>
@@ -115,13 +131,13 @@ export function FuelingPanel({
         <div className="flex items-center justify-between gap-4">
           <dt className="text-sm text-muted">Work</dt>
           <dd className="text-sm font-semibold tabular-nums">
-            {formatNumber(fueling.energyKj)} kJ
+            {formatNumber(kjToKcal(fueling.energyKj))} Cal
           </dd>
         </div>
         <div className="flex items-center justify-between gap-4">
           <dt className="text-sm text-muted">Bottles</dt>
           <dd className="text-sm font-semibold tabular-nums">
-            {bottles} × 500 ml
+            {bottles} × {bottleOz} oz
           </dd>
         </div>
         <div className="flex items-center justify-between gap-4">

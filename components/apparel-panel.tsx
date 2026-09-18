@@ -1,4 +1,5 @@
 import type { ApparelAdvice } from "@/lib/recommendations";
+import { formatMph, formatTempF } from "@/lib/units";
 
 export function ApparelPanel({ advice }: { advice: ApparelAdvice }) {
   return (
@@ -6,10 +7,10 @@ export function ApparelPanel({ advice }: { advice: ApparelAdvice }) {
       <p className="text-sm text-muted">
         Built for{" "}
         <span className="font-semibold text-foreground">
-          {advice.startFeelsLikeC}° feels-like
+          {formatTempF(advice.startFeelsLikeC)} feels-like
         </span>{" "}
-        at the start and {advice.maxWindKph} km/h of wind, warming to{" "}
-        {advice.peakFeelsLikeC}°.
+        at the start and {formatMph(advice.maxWindKph)} of wind, warming to{" "}
+        {formatTempF(advice.peakFeelsLikeC)}.
       </p>
 
       <ul className="mt-5 flex flex-col gap-3">
@@ -33,7 +34,7 @@ export function ApparelPanel({ advice }: { advice: ApparelAdvice }) {
 
       {advice.shedAtTime ? (
         <p className="mt-5 rounded-xl border border-caution/25 bg-caution/10 px-4 py-3 text-xs leading-relaxed text-caution">
-          Feels-like passes 14° around {advice.shedAtTime} — plan a stop to stow
+          Feels-like passes {formatTempF(14)} around {advice.shedAtTime} — plan a stop to stow
           the vest, or you will overheat on the last climb.
         </p>
       ) : null}

@@ -34,6 +34,7 @@ import {
   dataUrlToPngBlob,
   shareOrCopyPng,
 } from "@/lib/share-briefing";
+import { formatNumber, kmToMiles, metresToFeet } from "@/lib/units";
 
 const TEMPO_WATTS = 210;
 const TOAST_MS = 2800;
@@ -474,7 +475,7 @@ export default function Home() {
         <ShareBriefingButton
           targetRef={briefingRef}
           title={briefing.route.name}
-          text={`${briefing.route.name} · ${briefing.route.distanceKm} km · ${briefing.route.elevationGainM} m`}
+          text={`${briefing.route.name} · ${formatNumber(kmToMiles(briefing.route.distanceKm), 1)} mi · ${formatNumber(metresToFeet(briefing.route.elevationGainM))} ft`}
         />
       </RouteHeader>
       <TemperatureBar hourly={hourly} source={forecastSource} />

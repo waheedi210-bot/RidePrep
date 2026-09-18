@@ -20,6 +20,28 @@ const COMPASS_POINTS = [
 export const kmToMiles = (km: number) => km * 0.621371;
 export const metresToFeet = (metres: number) => metres * 3.28084;
 export const psiToBar = (psi: number) => psi / 14.5038;
+export const kphToMph = (kph: number) => kph * 0.621371;
+export const kgToLb = (kg: number) => kg * 2.20462;
+export const lbToKg = (lb: number) => lb / 2.20462;
+export const mlToFlOz = (ml: number) => ml * 0.033814;
+export const kjToKcal = (kj: number) => kj * 0.239006;
+
+export function celsiusToFahrenheit(celsius: number): number {
+  return celsius * (9 / 5) + 32;
+}
+
+export function fahrenheitToCelsius(fahrenheit: number): number {
+  return (fahrenheit - 32) * (5 / 9);
+}
+
+/** Convert a Celsius *delta* (wind-chill drop, not an absolute temperature). */
+export function celsiusDeltaToFahrenheit(deltaC: number): number {
+  return deltaC * (9 / 5);
+}
+
+export function roundTo(value: number, step: number): number {
+  return Math.round(value / step) * step;
+}
 
 /**
  * Formatted without `toLocaleString` so the server and the browser cannot
@@ -30,6 +52,14 @@ export function formatNumber(value: number, fractionDigits = 0): string {
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
   return fraction ? `${grouped}.${fraction}` : grouped;
+}
+
+export function formatTempF(tempC: number, fractionDigits = 0): string {
+  return `${formatNumber(celsiusToFahrenheit(tempC), fractionDigits)}°F`;
+}
+
+export function formatMph(kph: number, fractionDigits = 0): string {
+  return `${formatNumber(kphToMph(kph), fractionDigits)} mph`;
 }
 
 export function formatDuration(hours: number): string {

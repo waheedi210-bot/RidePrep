@@ -1,5 +1,5 @@
 import type { WindAdvice } from "@/lib/recommendations";
-import { bearingToCompass } from "@/lib/units";
+import { bearingToCompass, kphToMph } from "@/lib/units";
 
 const CARDINALS = [
   { label: "N", x: 100, y: 17 },
@@ -15,7 +15,7 @@ export function WindCompass({ wind }: { wind: WindAdvice }) {
     <svg
       viewBox="0 0 200 200"
       role="img"
-      aria-label={`Wind from the ${wind.fromLabel}, ${Math.round(wind.fromDeg)} degrees, at ${wind.averageKph} kilometres per hour. The route heads out on a bearing of ${wind.outboundBearingDeg} degrees, giving a ${wind.outboundLeg} on the way out.`}
+      aria-label={`Wind from the ${wind.fromLabel}, ${Math.round(wind.fromDeg)} degrees, at ${Math.round(kphToMph(wind.averageKph))} miles per hour. The route heads out on a bearing of ${wind.outboundBearingDeg} degrees, giving a ${wind.outboundLeg} on the way out.`}
       className="h-40 w-40 shrink-0"
     >
       <circle

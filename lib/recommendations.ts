@@ -7,6 +7,8 @@ import {
   averageBearing,
   bearingDifference,
   bearingToCompass,
+  formatMph,
+  formatTempF,
   normaliseBearing,
   psiToBar,
 } from "./units.ts";
@@ -135,7 +137,7 @@ export function recommendApparel({ hourly, route }: Briefing): ApparelAdvice {
       {
         slot: "Jersey",
         item: jersey,
-        reason: `Feels like ${startFeelsLikeC}° at the ${route.startTime} roll-out, climbing to ${peakFeelsLikeC}°.`,
+        reason: `Feels like ${formatTempF(startFeelsLikeC)} at the ${route.startTime} roll-out, climbing to ${formatTempF(peakFeelsLikeC)}.`,
       },
       {
         slot: "Base layer",
@@ -146,7 +148,7 @@ export function recommendApparel({ hourly, route }: Briefing): ApparelAdvice {
       {
         slot: "Wind vest",
         item: windVest,
-        reason: `${maxWindKph} km/h wind with gusts to ${maxGustKph} km/h.`,
+        reason: `${formatMph(maxWindKph)} wind with gusts to ${formatMph(maxGustKph)}.`,
       },
     ],
   };

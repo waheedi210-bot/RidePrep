@@ -2,7 +2,7 @@ import type { ReactNode, Ref } from "react";
 
 import type { RouteSummary } from "@/lib/briefing";
 import { SURFACE_LABELS } from "@/lib/briefing";
-import { formatDuration, formatNumber, kmToMiles, metresToFeet } from "@/lib/units";
+import { formatDuration, formatNumber, kmToMiles, kphToMph, metresToFeet } from "@/lib/units";
 
 export function RouteHeader({
   route,
@@ -13,6 +13,10 @@ export function RouteHeader({
   captureRef?: Ref<HTMLDivElement>;
   children?: ReactNode;
 }) {
+  const distanceMi = kmToMiles(route.distanceKm);
+  const elevationFt = metresToFeet(route.elevationGainM);
+  const avgMph = kphToMph(route.distanceKm / route.movingHours);
+
   return (
     <section className="relative overflow-hidden rounded-2xl border border-border-subtle bg-surface">
       <div
@@ -37,11 +41,8 @@ export function RouteHeader({
               Distance
             </dt>
             <dd className="mt-1 text-xl font-semibold tabular-nums sm:text-2xl">
-              {formatNumber(route.distanceKm, 1)}
-              <span className="ml-1 text-xs font-medium text-muted">km</span>
-            </dd>
-            <dd className="text-xs tabular-nums text-muted">
-              {formatNumber(kmToMiles(route.distanceKm), 1)} mi
+              {formatNumber(distanceMi, 1)}
+              <span className="ml-1 text-xs font-medium text-muted">mi</span>
             </dd>
           </div>
 
@@ -50,11 +51,8 @@ export function RouteHeader({
               Elevation
             </dt>
             <dd className="mt-1 text-xl font-semibold tabular-nums sm:text-2xl">
-              {formatNumber(route.elevationGainM)}
-              <span className="ml-1 text-xs font-medium text-muted">m</span>
-            </dd>
-            <dd className="text-xs tabular-nums text-muted">
-              {formatNumber(metresToFeet(route.elevationGainM))} ft
+              {formatNumber(elevationFt)}
+              <span className="ml-1 text-xs font-medium text-muted">ft</span>
             </dd>
           </div>
 
@@ -66,7 +64,7 @@ export function RouteHeader({
               {formatDuration(route.movingHours)}
             </dd>
             <dd className="text-xs tabular-nums text-muted">
-              {formatNumber(route.distanceKm / route.movingHours, 1)} km/h avg
+              {formatNumber(avgMph, 1)} mph avg
             </dd>
           </div>
         </dl>

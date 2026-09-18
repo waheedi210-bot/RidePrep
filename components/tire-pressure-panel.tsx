@@ -1,7 +1,7 @@
 import { Metric } from "@/components/metric";
 import { NumberField } from "@/components/number-field";
 import type { TirePressureResult, TireSetup } from "@/lib/calculations";
-import { formatNumber, psiToBar } from "@/lib/units";
+import { formatNumber, kgToLb, lbToKg, roundTo } from "@/lib/units";
 
 export function TirePressurePanel({
   riderWeightKg,
@@ -34,27 +34,27 @@ export function TirePressurePanel({
   pressure: TirePressureResult;
   wetHint: string | null;
 }) {
-  const systemKg = riderWeightKg + bikeWeightKg;
+  const systemLb = kgToLb(riderWeightKg + bikeWeightKg);
 
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-2 gap-3">
         <NumberField
           label="Rider"
-          value={riderWeightKg}
-          onChange={onRiderWeightKg}
-          unit="kg"
-          min={40}
-          max={140}
-          step={0.5}
+          value={roundTo(kgToLb(riderWeightKg), 1)}
+          onChange={(lb) => onRiderWeightKg(lbToKg(lb))}
+          unit="lb"
+          min={90}
+          max={310}
+          step={1}
         />
         <NumberField
           label="Bike"
-          value={bikeWeightKg}
-          onChange={onBikeWeightKg}
-          unit="kg"
-          min={5}
-          max={20}
+          value={roundTo(kgToLb(bikeWeightKg), 0.1)}
+          onChange={(lb) => onBikeWeightKg(lbToKg(lb))}
+          unit="lb"
+          min={11}
+          max={44}
           step={0.1}
         />
         <NumberField
@@ -137,20 +137,20 @@ export function TirePressurePanel({
             label="Front"
             value={formatNumber(pressure.frontPsi)}
             unit="psi"
-            detail={`${formatNumber(psiToBar(pressure.frontPsi), 1)} bar · 40% load`}
+            detail="40% load"
             tone="accent"
           />
           <Metric
             label="Rear"
             value={formatNumber(pressure.rearPsi)}
             unit="psi"
-            detail={`${formatNumber(psiToBar(pressure.rearPsi), 1)} bar · 60% load`}
+            detail="60% load"
             tone="accent"
           />
         </div>
 
         <p className="mt-4 text-xs leading-relaxed text-muted">
-          Silca / SRAM equal-drop model for {formatNumber(systemKg, 1)} kg of
+          Silca / SRAM equal-drop model for {formatNumber(systemLb, 1)} lb of
           rider and bike on {tireWidthMm} mm {isGravel ? "gravel" : "road"}{" "}
           {setup} tyres with a {formatNumber(rimInnerWidthMm, 1)} mm inner rim.
         </p>

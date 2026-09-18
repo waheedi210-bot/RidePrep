@@ -1,4 +1,10 @@
 import type { HourlyConditions } from "@/lib/briefing";
+import {
+  celsiusDeltaToFahrenheit,
+  celsiusToFahrenheit,
+  formatNumber,
+  formatTempF,
+} from "@/lib/units";
 
 /** Cold blue through to hot red, interpolated between these anchors. */
 const SCALE: { tempC: number; rgb: [number, number, number] }[] = [
@@ -27,6 +33,10 @@ function temperatureColour(tempC: number): string {
   );
 
   return `rgb(${mixed.join(" ")})`;
+}
+
+function displayTempF(tempC: number): number {
+  return Math.round(celsiusToFahrenheit(tempC));
 }
 
 export function TemperatureBar({
@@ -72,7 +82,7 @@ export function TemperatureBar({
         </h2>
         <div className="text-right">
           <p className="text-xs tabular-nums text-muted">
-            {coldest.tempC}° → {warmest.tempC}°
+            {displayTempF(coldest.tempC)}°F → {displayTempF(warmest.tempC)}°F
           </p>
           {source ? (
             <p className="mt-1 font-mono text-[0.625rem] uppercase tracking-[0.14em] text-muted">
@@ -84,7 +94,7 @@ export function TemperatureBar({
 
       <div
         role="img"
-        aria-label={`Temperature rises from ${coldest.tempC} degrees at ${coldest.time} to ${warmest.tempC} degrees at ${warmest.time}.`}
+        aria-label={`Temperature rises from ${displayTempF(coldest.tempC)} degrees Fahrenheit at ${coldest.time} to ${displayTempF(warmest.tempC)} degrees Fahrenheit at ${warmest.time}.`}
         className="mt-4 h-3 rounded-full"
         style={{ backgroundImage: `linear-gradient(to right, ${gradient})` }}
       />
@@ -98,7 +108,7 @@ export function TemperatureBar({
         {hourly.map((hour) => (
           <li key={hour.time} className="text-center">
             <span className="block text-sm font-semibold tabular-nums">
-              {Math.round(hour.tempC)}°
+              {displayTempF(hour.tempC)}°
             </span>
             <span className="block font-mono text-[0.625rem] text-muted">
               {hour.time.slice(0, 2)}
@@ -108,8 +118,9 @@ export function TemperatureBar({
       </ol>
 
       <p className="mt-4 border-t border-border-subtle pt-3 text-xs text-muted">
-        Air temperature. The wind takes up to {biggestWindChill.toFixed(1)}° off
-        that, so dress for {hourly[0].feelsLikeC}° at the start.
+        Air temperature. The wind takes up to{" "}
+        {formatNumber(celsiusDeltaToFahrenheit(biggestWindChill), 1)}°F off
+        that, so dress for {formatTempF(hourly[0].feelsLikeC)} at the start.
       </p>
     </section>
   );
