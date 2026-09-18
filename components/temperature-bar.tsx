@@ -67,6 +67,9 @@ export function TemperatureBar({
   const biggestWindChill = Math.max(
     ...hourly.map((hour) => hour.tempC - hour.feelsLikeC),
   );
+  const wettest = hourly.reduce((wet, hour) =>
+    hour.precipChance > wet.precipChance ? hour : wet,
+  );
 
   return (
     <section
@@ -78,11 +81,14 @@ export function TemperatureBar({
           id="temperature-heading"
           className="font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-accent"
         >
-          Hourly temperature
+          Hourly temp & rain
         </h2>
         <div className="text-right">
           <p className="text-xs tabular-nums text-muted">
             {displayTempF(coldest.tempC)}°F → {displayTempF(warmest.tempC)}°F
+          </p>
+          <p className="mt-0.5 text-xs tabular-nums text-muted">
+            rain to {wettest.precipChance}%
           </p>
           {source ? (
             <p className="mt-1 font-mono text-[0.625rem] uppercase tracking-[0.14em] text-muted">
@@ -94,7 +100,7 @@ export function TemperatureBar({
 
       <div
         role="img"
-        aria-label={`Temperature rises from ${displayTempF(coldest.tempC)} degrees Fahrenheit at ${coldest.time} to ${displayTempF(warmest.tempC)} degrees Fahrenheit at ${warmest.time}.`}
+        aria-label={`Temperature from ${displayTempF(coldest.tempC)} to ${displayTempF(warmest.tempC)} degrees Fahrenheit. Chance of rain peaks at ${wettest.precipChance} percent at ${wettest.time}.`}
         className="mt-4 h-3 rounded-full"
         style={{ backgroundImage: `linear-gradient(to right, ${gradient})` }}
       />
@@ -109,6 +115,13 @@ export function TemperatureBar({
           <li key={hour.time} className="text-center">
             <span className="block text-sm font-semibold tabular-nums">
               {displayTempF(hour.tempC)}°
+            </span>
+            <span
+              className={`block font-mono text-[0.625rem] tabular-nums ${
+                hour.precipChance >= 30 ? "text-caution" : "text-muted"
+              }`}
+            >
+              {hour.precipChance}%
             </span>
             <span className="block font-mono text-[0.625rem] text-muted">
               {hour.time.slice(0, 2)}
