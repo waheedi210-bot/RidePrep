@@ -54,7 +54,7 @@ export function HealthPanel({ advice }: { advice: AirHealthAdvice }) {
             {formatNumber(advice.ozone, 1)} µg/m³
           </dd>
         </div>
-        {advice.dust != null ? (
+        {advice.dust != null && advice.dust >= 1 ? (
           <div className="flex items-center justify-between gap-4">
             <dt className="text-sm text-muted">Dust</dt>
             <dd className="text-sm font-semibold tabular-nums">
