@@ -69,9 +69,10 @@ link, plus a roll-out date and time. The temperature bar then loads a live
 URLs cannot be fetched without a login — export GPX from Strava and drop the
 file instead.
 
-The route header card has a **Share Briefing to Group Chat** button. It runs
+The route header card has a **Share** button. It runs
 `toPng` from `html-to-image` (`cacheBust: true`, `pixelRatio: 2`) against a
-`useRef` on the card body, then offers the PNG through `navigator.share` /
+dedicated off-screen briefing share card (route name, date/time, distance,
+elevation, weather, apparel), then offers the PNG through `navigator.share` /
 `navigator.canShare({ files })` on mobile. Desktop browsers that cannot share
 files get the image (or the page URL) on the clipboard and a toast:
 "Briefing copied to clipboard!".

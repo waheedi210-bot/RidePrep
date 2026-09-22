@@ -1,4 +1,4 @@
-import type { ReactNode, Ref } from "react";
+import type { ReactNode } from "react";
 
 import type { RouteSummary } from "@/lib/briefing";
 import { SURFACE_LABELS } from "@/lib/briefing";
@@ -6,11 +6,9 @@ import { formatDuration, formatNumber, kmToMiles, kphToMph, metresToFeet } from 
 
 export function RouteHeader({
   route,
-  captureRef,
   children,
 }: {
   route: RouteSummary;
-  captureRef?: Ref<HTMLDivElement>;
   children?: ReactNode;
 }) {
   const distanceMi = kmToMiles(route.distanceKm);
@@ -24,7 +22,7 @@ export function RouteHeader({
         className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent to-transparent"
       />
 
-      <div ref={captureRef} className="bg-surface p-5 sm:p-6">
+      <div className="bg-surface p-5 sm:p-6">
         <p className="font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-accent">
           Pre-ride briefing · {route.startTime} roll-out
         </p>
