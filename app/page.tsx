@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 
 import { ApparelPanel } from "@/components/apparel-panel";
+import { BriefingShareCard } from "@/components/briefing-share-card";
 import { BriefingTabs, type BriefingTab } from "@/components/briefing-tabs";
 import { FuelingPanel } from "@/components/fueling-panel";
 import { HealthPanel } from "@/components/health-panel";
@@ -47,6 +48,8 @@ import { describeWind, recommendApparel } from "@/lib/recommendations";
 import {
   SHARE_TOAST,
   dataUrlToPngBlob,
+  formatShareDate,
+  formatShareTime,
   shareOrCopyPng,
 } from "@/lib/share-briefing";
 import { formatNumber, kmToMiles, metresToFeet } from "@/lib/units";
@@ -149,7 +152,7 @@ function ShareBriefingButton({
         aria-busy={busy}
         className="w-full rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-background transition-colors hover:bg-accent-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
       >
-        {busy ? "Preparing briefing…" : "Share Briefing to Group Chat"}
+        {busy ? "Sharing…" : "Share"}
       </button>
 
       {toast ? (
@@ -389,6 +392,15 @@ export default function Home() {
       ? `${wettestHour.precipChance}% chance of rain at ${wettestHour.time} — take 4 psi out of each tyre for grip on the descents.`
       : null;
 
+  const apparelAdvice = useMemo(
+    () => (briefing && hourly.length > 0 ? recommendApparel(briefing) : null),
+    [briefing, hourly],
+  );
+  const windAdvice = useMemo(
+    () => (briefing && hourly.length > 0 ? describeWind(briefing) : null),
+    [briefing, hourly],
+  );
+
   const onGpxFile = async (file: File) => {
     setBusy(true);
     setRouteMessage(null);
@@ -473,13 +485,13 @@ export default function Home() {
   };
 
   const tabs: BriefingTab[] =
-    briefing && hourly.length > 0
+    briefing && hourly.length > 0 && apparelAdvice && windAdvice
       ? [
           {
             id: "apparel",
             label: "Apparel",
             shortLabel: "Apparel",
-            panel: <ApparelPanel advice={recommendApparel(briefing)} />,
+            panel: <ApparelPanel advice={apparelAdvice} />,
           },
           {
             id: "tyres",
@@ -508,7 +520,7 @@ export default function Home() {
             id: "wind",
             label: "Wind",
             shortLabel: "Wind",
-            panel: <WindPanel wind={describeWind(briefing)} />,
+            panel: <WindPanel wind={windAdvice} />,
           },
           {
             id: "fueling",
@@ -571,13 +583,32 @@ export default function Home() {
 
       {briefing ? (
         <>
-          <RouteHeader route={briefing.route} captureRef={briefingRef}>
-            <ShareBriefingButton
-              targetRef={briefingRef}
-              title={briefing.route.name}
-              text={`${briefing.route.name} · ${formatNumber(kmToMiles(briefing.route.distanceKm), 1)} mi · ${formatNumber(metresToFeet(briefing.route.elevationGainM))} ft`}
-            />
+          <RouteHeader route={briefing.route}>
+            {apparelAdvice && windAdvice && hourly.length > 0 ? (
+              <ShareBriefingButton
+                targetRef={briefingRef}
+                title={briefing.route.name}
+                text={`${briefing.route.name} · ${formatShareDate(dateYmd)} · ${formatShareTime(timeHm)} · ${formatNumber(kmToMiles(briefing.route.distanceKm), 1)} mi · ${formatNumber(metresToFeet(briefing.route.elevationGainM))} ft`}
+              />
+            ) : null}
           </RouteHeader>
+          <div
+            aria-hidden
+            className="pointer-events-none fixed top-0 left-[-10000px] z-[-1]"
+          >
+            {apparelAdvice && windAdvice && hourly.length > 0 ? (
+              <div ref={briefingRef}>
+                <BriefingShareCard
+                  route={briefing.route}
+                  dateYmd={dateYmd}
+                  timeHm={timeHm}
+                  hourly={hourly}
+                  wind={windAdvice}
+                  apparel={apparelAdvice}
+                />
+              </div>
+            ) : null}
+          </div>
           <TemperatureBar hourly={hourly} source={forecastSource} />
           <RouteWindMap
             points={

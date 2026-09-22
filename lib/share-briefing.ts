@@ -2,6 +2,54 @@ export const SHARE_TOAST = "Briefing copied to clipboard!";
 
 export type ShareOutcome = "shared" | "copied" | "cancelled";
 
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+/** Stable share-card date, e.g. `Wed, Sep 23`. */
+export function formatShareDate(dateYmd: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateYmd.trim());
+
+  if (!match) {
+    return dateYmd;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const weekday = WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+
+  return `${weekday}, ${MONTHS[month - 1]} ${day}`;
+}
+
+/** 12-hour roll-out clock for the share card, e.g. `6:30 AM`. */
+export function formatShareTime(timeHm: string): string {
+  const match = /^(\d{2}):(\d{2})$/.exec(timeHm.trim());
+
+  if (!match) {
+    return timeHm;
+  }
+
+  const hour24 = Number(match[1]);
+  const minutes = match[2];
+  const suffix = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+
+  return `${hour12}:${minutes} ${suffix}`;
+}
+
 export function dataUrlToPngBlob(dataUrl: string): Blob {
   const [header, payload] = dataUrl.split(",", 2);
   const mime = header.match(/data:(.*?);/)?.[1] ?? "image/png";
