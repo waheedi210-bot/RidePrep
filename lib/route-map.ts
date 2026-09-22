@@ -208,9 +208,7 @@ export function tilesForView(view: MapView): MapTile[] {
 }
 
 export function tileUrl(tile: MapTile): string {
-  const subdomain = ["a", "b", "c", "d"][(tile.x + tile.y) % 4];
-
-  return `https://${subdomain}.basemaps.cartocdn.com/dark_all/${tile.z}/${tile.x}/${tile.y}@2x.png`;
+  return `/api/map-tile?z=${tile.z}&x=${tile.x}&y=${tile.y}`;
 }
 
 export function headingNear(

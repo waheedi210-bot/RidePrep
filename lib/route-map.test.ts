@@ -7,6 +7,7 @@ import {
   downsampleTrack,
   fitMapView,
   latLngToWorld,
+  tileUrl,
   tilesForView,
   windArrowsAlongRoute,
   windOnCourse,
@@ -84,6 +85,7 @@ describe("fitMapView", () => {
 
     assert.ok(tiles.length > 0);
     assert.ok(tiles.every((tile) => tile.z === view.zoom));
+    assert.match(tileUrl(tiles[0]), /^\/api\/map-tile\?z=\d+&x=\d+&y=\d+$/);
   });
 });
 

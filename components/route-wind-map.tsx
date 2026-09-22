@@ -123,7 +123,7 @@ export function RouteWindMap({
             alt=""
             src={tileUrl(tile)}
             draggable={false}
-            className="pointer-events-none absolute max-w-none"
+            className="pointer-events-none absolute max-w-none [filter:invert(1)_hue-rotate(180deg)_brightness(0.9)_saturate(0.55)]"
             style={{
               left: tile.left,
               top: tile.top,
@@ -219,7 +219,7 @@ export function RouteWindMap({
         </svg>
 
         <p className="pointer-events-none absolute bottom-1.5 right-2 font-mono text-[0.5625rem] uppercase tracking-[0.08em] text-muted/80">
-          © OSM · CARTO
+          © OpenStreetMap
         </p>
       </div>
 
