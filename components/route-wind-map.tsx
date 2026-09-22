@@ -114,7 +114,7 @@ export function RouteWindMap({
 
       <div
         ref={frameRef}
-        className="relative mt-4 overflow-hidden rounded-xl bg-background"
+        className="relative mt-4 overflow-hidden rounded-xl bg-[#f2efe9]"
         style={{ height: MAP_HEIGHT }}
       >
         {tiles.map((tile) => (
@@ -123,7 +123,7 @@ export function RouteWindMap({
             alt=""
             src={tileUrl(tile)}
             draggable={false}
-            className="pointer-events-none absolute max-w-none [filter:invert(1)_hue-rotate(180deg)_brightness(0.9)_saturate(0.55)]"
+            className="pointer-events-none absolute max-w-none"
             style={{
               left: tile.left,
               top: tile.top,
@@ -150,7 +150,7 @@ export function RouteWindMap({
               <path
                 d={path}
                 fill="none"
-                stroke="#0f172a"
+                stroke="#ffffff"
                 strokeWidth="6"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -158,8 +158,8 @@ export function RouteWindMap({
               <path
                 d={path}
                 fill="none"
-                stroke="#fc4c02"
-                strokeWidth="3"
+                stroke="#e11d2e"
+                strokeWidth="3.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
@@ -170,19 +170,21 @@ export function RouteWindMap({
             <circle
               cx={start.x}
               cy={start.y}
-              r="5"
-              className="fill-foreground stroke-background"
+              r="6"
+              fill="#16a34a"
+              stroke="#ffffff"
               strokeWidth="2"
             />
           ) : null}
           {finish && start && (finish.x !== start.x || finish.y !== start.y) ? (
             <rect
-              x={finish.x - 4}
-              y={finish.y - 4}
-              width="8"
-              height="8"
-              rx="1.5"
-              className="fill-accent stroke-background"
+              x={finish.x - 5}
+              y={finish.y - 5}
+              width="10"
+              height="10"
+              rx="2"
+              fill="#fc4c02"
+              stroke="#ffffff"
               strokeWidth="2"
             />
           ) : null}
@@ -205,6 +207,15 @@ export function RouteWindMap({
                   y1={length * 0.35}
                   x2="0"
                   y2={-length * 0.45}
+                  stroke="#ffffff"
+                  strokeWidth="5.5"
+                  strokeLinecap="round"
+                />
+                <line
+                  x1="0"
+                  y1={length * 0.35}
+                  x2="0"
+                  y2={-length * 0.45}
                   stroke={color}
                   strokeWidth="3.5"
                   strokeLinecap="round"
@@ -212,13 +223,15 @@ export function RouteWindMap({
                 <polygon
                   points={`0,${-length * 0.7} 5,${-length * 0.25} -5,${-length * 0.25}`}
                   fill={color}
+                  stroke="#ffffff"
+                  strokeWidth="1.25"
                 />
               </g>
             );
           })}
         </svg>
 
-        <p className="pointer-events-none absolute bottom-1.5 right-2 font-mono text-[0.5625rem] uppercase tracking-[0.08em] text-muted/80">
+        <p className="pointer-events-none absolute bottom-1.5 right-2 font-mono text-[0.5625rem] uppercase tracking-[0.08em] text-slate-600">
           © OpenStreetMap
         </p>
       </div>
