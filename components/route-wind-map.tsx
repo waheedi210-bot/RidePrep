@@ -100,17 +100,12 @@ export function RouteWindMap({
       aria-labelledby="route-wind-heading"
       className="rounded-2xl border border-border-subtle bg-surface p-5 sm:p-6"
     >
-      <div className="flex items-start justify-between gap-3">
-        <h2
-          id="route-wind-heading"
-          className="font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-accent"
-        >
-          Route & wind
-        </h2>
-        <p className="text-right text-xs text-muted">
-          Arrows show where the wind is pushing
-        </p>
-      </div>
+      <h2
+        id="route-wind-heading"
+        className="font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-accent"
+      >
+        Route & Wind Direction
+      </h2>
 
       <div
         ref={frameRef}

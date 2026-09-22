@@ -13,6 +13,7 @@ import { RouteHeader } from "@/components/route-header";
 import { RouteInPanel } from "@/components/route-in-panel";
 import { RouteWindMap } from "@/components/route-wind-map";
 import { TemperatureBar } from "@/components/temperature-bar";
+import { WindChart } from "@/components/wind-chart";
 import { TirePressurePanel } from "@/components/tire-pressure-panel";
 import { WindPanel } from "@/components/wind-panel";
 import {
@@ -587,6 +588,7 @@ export default function Home() {
             hourly={hourly}
             movingHours={briefing.route.movingHours}
           />
+          <WindChart hourly={hourly} />
           {airAdvice &&
           (airAdvice.severity === "caution" || airAdvice.severity === "stop") ? (
             <p
