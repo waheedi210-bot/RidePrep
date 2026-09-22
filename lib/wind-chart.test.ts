@@ -60,6 +60,6 @@ describe("seriesPath", () => {
 describe("xLabelIndexes", () => {
   it("keeps short series fully labelled and thins long ones", () => {
     assert.deepEqual(xLabelIndexes(3), [0, 1, 2]);
-    assert.deepEqual(xLabelIndexes(8), [0, 3, 6, 7]);
+    assert.deepEqual(xLabelIndexes(8), [0, 3, 7]);
   });
 });

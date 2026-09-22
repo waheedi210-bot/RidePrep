@@ -54,7 +54,11 @@ export function xLabelIndexes(count: number): number[] {
   }
 
   if (indexes[indexes.length - 1] !== count - 1) {
-    indexes.push(count - 1);
+    if (count - 1 - indexes[indexes.length - 1] < step) {
+      indexes[indexes.length - 1] = count - 1;
+    } else {
+      indexes.push(count - 1);
+    }
   }
 
   return indexes;
