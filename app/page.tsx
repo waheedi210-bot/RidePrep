@@ -7,12 +7,17 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObj
 import { ApparelPanel } from "@/components/apparel-panel";
 import { BriefingTabs, type BriefingTab } from "@/components/briefing-tabs";
 import { FuelingPanel } from "@/components/fueling-panel";
+import { HealthPanel } from "@/components/health-panel";
 import { InstallPanel } from "@/components/install-panel";
 import { RouteHeader } from "@/components/route-header";
 import { RouteInPanel } from "@/components/route-in-panel";
 import { TemperatureBar } from "@/components/temperature-bar";
 import { TirePressurePanel } from "@/components/tire-pressure-panel";
 import { WindPanel } from "@/components/wind-panel";
+import {
+  recommendAirHealth,
+  type AirObservation,
+} from "@/lib/air-quality";
 import {
   DEFAULT_START_TIME,
   defaultRider,
@@ -34,6 +39,7 @@ import {
 import { observationsToHourly } from "@/lib/forecast";
 import type { GeoPoint } from "@/lib/geo";
 import { parseGpx } from "@/lib/gpx";
+import { requestBriefingAirQuality } from "@/lib/live-air";
 import { requestBriefingWeather } from "@/lib/live-weather";
 import { describeWind, recommendApparel } from "@/lib/recommendations";
 import {
@@ -199,6 +205,7 @@ export default function Home() {
   const localTimeZone = useLocalTimeZone();
   const [route, setRoute] = useState<RouteSummary | null>(null);
   const [hourly, setHourly] = useState<HourlyConditions[]>([]);
+  const [airHours, setAirHours] = useState<AirObservation[]>([]);
   const [track, setTrack] = useState<GeoPoint[] | undefined>(undefined);
   const [dateYmd, setDateYmd] = useState(() =>
     toZonedDateInput(
@@ -245,7 +252,7 @@ export default function Home() {
       }
 
       try {
-        const payload = await requestBriefingWeather({
+        const weatherRequest = requestBriefingWeather({
           lat: loadedRoute.lat,
           lng: loadedRoute.lng,
           startTime: startInstant,
@@ -253,21 +260,53 @@ export default function Home() {
           points: track,
           signal: controller.signal,
         });
-        const zone =
-          usableIanaTimeZone(payload.location.timezone) ?? loadedRoute.timezone;
-        const nextHourly = observationsToHourly(payload.hours, zone);
+        const airRequest = requestBriefingAirQuality({
+          lat: loadedRoute.lat,
+          lng: loadedRoute.lng,
+          startTime: startInstant,
+          movingHours: loadedRoute.movingHours,
+          signal: controller.signal,
+        });
+        const [weatherResult, airResult] = await Promise.allSettled([
+          weatherRequest,
+          airRequest,
+        ]);
 
-        if (!controller.signal.aborted && nextHourly.length > 0) {
-          if (zone !== loadedRoute.timezone) {
-            setRoute((current) =>
-              current ? { ...current, timezone: zone } : current,
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        if (weatherResult.status === "fulfilled") {
+          const payload = weatherResult.value;
+          const zone =
+            usableIanaTimeZone(payload.location.timezone) ?? loadedRoute.timezone;
+          const nextHourly = observationsToHourly(payload.hours, zone);
+
+          if (nextHourly.length > 0) {
+            if (zone !== loadedRoute.timezone) {
+              setRoute((current) =>
+                current ? { ...current, timezone: zone } : current,
+              );
+            }
+            setHourly(nextHourly);
+            setTemperatureC(
+              Math.round(averageTempC(nextHourly.map((hour) => hour.tempC)) * 10) / 10,
             );
+            setForecastSource("Live Open-Meteo");
           }
-          setHourly(nextHourly);
-          setTemperatureC(
-            Math.round(averageTempC(nextHourly.map((hour) => hour.tempC)) * 10) / 10,
+        } else {
+          setForecastSource(undefined);
+          setRouteMessage(
+            weatherResult.reason instanceof Error
+              ? weatherResult.reason.message
+              : "Could not load the forecast.",
           );
-          setForecastSource("Live Open-Meteo");
+        }
+
+        if (airResult.status === "fulfilled") {
+          setAirHours(airResult.value.hours);
+        } else if (!controller.signal.aborted) {
+          setAirHours([]);
         }
       } catch (error) {
         if (controller.signal.aborted) {
@@ -332,6 +371,11 @@ export default function Home() {
       rider: defaultRider,
     };
   }, [route, hourly, isGravel, timeHm]);
+
+  const airAdvice = useMemo(
+    () => (airHours.length > 0 ? recommendAirHealth(airHours, briefingTimeZone) : null),
+    [airHours, briefingTimeZone],
+  );
 
   const wettestHour = hourly[0]
     ? hourly.reduce((wettest, hour) =>
@@ -412,6 +456,7 @@ export default function Home() {
     setTrack(undefined);
     setRoute(null);
     setHourly([]);
+    setAirHours([]);
     setDurationHours(3);
     setIsGravel(false);
     setForecastSource(undefined);
@@ -466,7 +511,7 @@ export default function Home() {
           {
             id: "fueling",
             label: "Fueling",
-            shortLabel: "Fueling",
+            shortLabel: "Fuel",
             panel: (
               <FuelingPanel
                 durationHours={durationHours}
@@ -482,6 +527,16 @@ export default function Home() {
               />
             ),
           },
+          ...(airAdvice
+            ? [
+                {
+                  id: "health",
+                  label: "Air Quality",
+                  shortLabel: "Air",
+                  panel: <HealthPanel advice={airAdvice} />,
+                } satisfies BriefingTab,
+              ]
+            : []),
         ]
       : [];
 
@@ -522,6 +577,19 @@ export default function Home() {
             />
           </RouteHeader>
           <TemperatureBar hourly={hourly} source={forecastSource} />
+          {airAdvice &&
+          (airAdvice.severity === "caution" || airAdvice.severity === "stop") ? (
+            <p
+              role="status"
+              className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                airAdvice.severity === "stop"
+                  ? "border border-accent/30 bg-accent/10 text-accent"
+                  : "border border-caution/25 bg-caution/10 text-caution"
+              }`}
+            >
+              {airAdvice.headline}
+            </p>
+          ) : null}
           {tabs.length > 0 ? <BriefingTabs tabs={tabs} /> : null}
         </>
       ) : (
@@ -529,16 +597,17 @@ export default function Home() {
           <p className="text-sm font-semibold">No route yet</p>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             Import a Ride with GPS link or a GPX and the briefing will fill in
-            distance, elevation, forecast, tires and fueling.
+            distance, elevation, forecast, tires, fueling and air quality.
           </p>
         </section>
       )}
       <InstallPanel />
 
       <footer className="pt-2 text-xs leading-relaxed text-muted">
-        Forecast is live Open-Meteo along the route. Tire pressure uses Silca /
-        SRAM plus rim and tubeless setup. Fueling follows ACSM/ISSN 30–90 g/hr
-        with dew-point sweat and a GI-tolerance slider.
+        Forecast is live Open-Meteo along the route. Air quality uses CAMS US
+        AQI (pollen where Europe has it). Tire pressure uses Silca / SRAM plus
+        rim and tubeless setup. Fueling follows ACSM/ISSN 30–90 g/hr with
+        dew-point sweat and a GI-tolerance slider.
       </footer>
     </main>
   );

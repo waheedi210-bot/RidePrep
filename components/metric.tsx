@@ -1,6 +1,8 @@
 const TONES = {
   accent: "text-accent",
   plain: "text-foreground",
+  positive: "text-positive",
+  caution: "text-caution",
 } as const;
 
 export interface MetricProps {

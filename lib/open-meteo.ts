@@ -2,6 +2,8 @@ import { usableIanaTimeZone } from "./datetime.ts";
 import { isOpenMeteoForecast, type OpenMeteoForecast } from "./weather.ts";
 
 export const OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast";
+export const OPEN_METEO_AIR_URL =
+  "https://air-quality-api.open-meteo.com/v1/air-quality";
 
 const CURRENT_VARIABLES = [
   "temperature_2m",
@@ -38,22 +40,7 @@ export class OpenMeteoError extends Error {
   }
 }
 
-export async function fetchOpenMeteoForecast(
-  lat: number,
-  lng: number,
-): Promise<OpenMeteoForecast> {
-  const url = new URL(OPEN_METEO_URL);
-
-  url.searchParams.set("latitude", lat.toFixed(4));
-  url.searchParams.set("longitude", lng.toFixed(4));
-  url.searchParams.set("timezone", "auto");
-  url.searchParams.set("timeformat", "iso8601");
-  url.searchParams.set("temperature_unit", "celsius");
-  url.searchParams.set("wind_speed_unit", "kmh");
-  url.searchParams.set("forecast_days", "7");
-  url.searchParams.set("current", CURRENT_VARIABLES.join(","));
-  url.searchParams.set("hourly", HOURLY_VARIABLES.join(","));
-
+export async function fetchOpenMeteoJson(url: URL): Promise<unknown> {
   let response: Response;
 
   try {
@@ -101,6 +88,27 @@ export async function fetchOpenMeteoForecast(
 
     throw new OpenMeteoError(reason, 502, "UPSTREAM_ERROR");
   }
+
+  return body;
+}
+
+export async function fetchOpenMeteoForecast(
+  lat: number,
+  lng: number,
+): Promise<OpenMeteoForecast> {
+  const url = new URL(OPEN_METEO_URL);
+
+  url.searchParams.set("latitude", lat.toFixed(4));
+  url.searchParams.set("longitude", lng.toFixed(4));
+  url.searchParams.set("timezone", "auto");
+  url.searchParams.set("timeformat", "iso8601");
+  url.searchParams.set("temperature_unit", "celsius");
+  url.searchParams.set("wind_speed_unit", "kmh");
+  url.searchParams.set("forecast_days", "7");
+  url.searchParams.set("current", CURRENT_VARIABLES.join(","));
+  url.searchParams.set("hourly", HOURLY_VARIABLES.join(","));
+
+  const body = await fetchOpenMeteoJson(url);
 
   if (!isOpenMeteoForecast(body)) {
     throw new OpenMeteoError(
