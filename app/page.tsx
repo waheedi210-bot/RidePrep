@@ -11,6 +11,7 @@ import { HealthPanel } from "@/components/health-panel";
 import { InstallPanel } from "@/components/install-panel";
 import { RouteHeader } from "@/components/route-header";
 import { RouteInPanel } from "@/components/route-in-panel";
+import { RouteWindMap } from "@/components/route-wind-map";
 import { TemperatureBar } from "@/components/temperature-bar";
 import { TirePressurePanel } from "@/components/tire-pressure-panel";
 import { WindPanel } from "@/components/wind-panel";
@@ -577,6 +578,15 @@ export default function Home() {
             />
           </RouteHeader>
           <TemperatureBar hourly={hourly} source={forecastSource} />
+          <RouteWindMap
+            points={
+              track && track.length > 0
+                ? track
+                : [{ lat: briefing.route.lat, lng: briefing.route.lng }]
+            }
+            hourly={hourly}
+            movingHours={briefing.route.movingHours}
+          />
           {airAdvice &&
           (airAdvice.severity === "caution" || airAdvice.severity === "stop") ? (
             <p
